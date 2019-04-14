@@ -21,6 +21,78 @@ from openpyxl import Workbook
 from openpyxl.styles import Font
 import pandas as pd
 
+
+def scrape_action(year, current_state, current_district, current_cat):
+    try:
+
+        print('Records exist for this combo of state+district+category')
+
+        for j in range(1,175):
+        
+            table = driver.find_element_by_xpath('//*[@id="placeholder1"]/table/tbody')
+            conf_list = []
+            line = []
+            i=0
+            for row in table.find_elements_by_id("one"):
+                #print('--------------------------------------New Row--------------------------------------------')
+                #print(row.text)
+                i= i+1
+                if i==1:
+                    #print('skipping this loop as it is the header')
+                    pass
+                else:
+                    line = []
+                    for col in row.find_elements_by_xpath('./td'):
+                        line.append(col.text)
+                    
+                    line.append(year)
+                    line.append(current_state)
+                    line.append(current_district)
+                    line.append(current_cat)
+                    #print('The line is :')
+                    #print(line)
+                    conf_list.append(line)
+                        #print('Row Done')
+                    #del conf_list[0]
+
+                    #print(conf_list)
+            wb = openpyxl.load_workbook(template_name)
+            page = wb.active
+            #print('The CONF_LIST IS :')
+            #print(conf_list)
+            for row in conf_list:
+                page.append(row)
+            wb.save(template_name)
+                #print('Done for page no '+str(i))
+                        
+            print('Done for page no '+str(j))
+            print('Attempting to click the next if it exists')
+
+            try:
+
+               next_link = browser.find_element_by_link_text('Next')
+               next_link.click()
+               print('Successfully clicked next')
+               #time.sleep(15)
+               browser.implicitly_wait(20)
+
+            except:
+               print('Seems last page is reached...moving to the next combo')
+               break
+            print('End of loop with page no '+str(j+1))
+
+
+        return 1
+
+    except StaleElementReferenceException:
+        print('Stale Element Exception...exiting scrape_action function')
+        return 2   
+    except:
+        return 3
+
+
+
+
 driver = webdriver.Chrome(executable_path='chromedriver')
 driver.get('http://cms.nic.in/ncdrcusersWeb/search.do?method=loadSearchPub')
 
@@ -91,142 +163,54 @@ for year in range(2004,2019):
                 print('The new category is :'+current_cat)
                 cat.select_by_visible_text(current_cat)
                 #print('After selecting category in dropdown')
-                time.sleep(1)
+                time.sleep(5)
 
                 cat_opt=cat.first_selected_option
                 if (cat_opt.text == "Select"):
                     print('Selecting the category again...'+current_cat)
+                    time.sleep(3)
                     cat.select_by_visible_text(current_cat)
                 
                 driver.find_element_by_id("searchbutton").click()
                 time.sleep(5)
                 #print("after clicking search")
 
+                search_count = 1
+                elem_id = "placeholder1"
+                try:
+                      element = WebDriverWait(driver, 60).until(
+                          EC.presence_of_element_located((By.ID, elem_id))
+                      )
+
+                except:
+                      print('Likely no records for this combo...placeholder1 not detected..')
+                      search_count = 0
+                      sys.exit()
+
                 if ("No Record(s) found" in driver.page_source):
+                #if search_count == 0 or ("No Record(s) found" in driver.page_source):
                     print('no records for this combo')
+
+##                elif 1==1 :
+##
+##                        try:
+##                              element = WebDriverWait(browser, 60).until(
+##                                  EC.presence_of_element_located((By.ID, elem_id))
+##                              )
+##
+##                        except:
+##                              print('Exception while waiting for element. Exiting...')
+##                              sys.exit()               
                 else:
-                    print('Records exist for this combo of state+district+category')
-                    table = driver.find_element_by_xpath('//*[@id="placeholder1"]/table/tbody')
-                    conf_list = []
-                    line = []
-                    i=0
-                    for row in table.find_elements_by_id("one"):
-                        #print('--------------------------------------New Row--------------------------------------------')
-                        #print(row.text)
-                        i= i+1
-                        if i==1:
-                            #print('skipping this loop as it is the header')
-                            pass
-                        else:
-                            line = []
-                            for col in row.find_elements_by_xpath('./td'):
-                                line.append(col.text)
-                            
-                            line.append(year)
-                            line.append(current_state)
-                            line.append(current_district)
-                            line.append(current_cat)
-                            #print('The line is :')
-                            #print(line)
-                            conf_list.append(line)
-                                #print('Row Done')
-                            #del conf_list[0]
+                    print('Records exist for this combo of state+district+category...calling function')
+                    action_return = scrape_action(year, current_state, current_district, current_cat)
+                    try:
+                        
+                        if action_return == 2:
+                            print('Stale element reported in function...calling the function again')
+                            action_return = scrape_action(year, current_state, current_district, current_cat)
+                    except:
+                        print('General exception in the block...moving to the next loop')
+                        pass
+                    
 
-                            #print(conf_list)
-                    wb = openpyxl.load_workbook(template_name)
-                    page = wb.active
-                    #print('The CONF_LIST IS :')
-                    #print(conf_list)
-                    for row in conf_list:
-                        page.append(row)
-                    wb.save(template_name)
-                            #print('Done for page no '+str(i))
-
-
-    sys.exit()
-
-
-
-
-
-
-##    
-##    stoptions=state.options
-##    #Range is from 0 to length-1, but issue occurs for states with only 1 district , like Circuit bench amravati,error: Message: Could not locate element with index 1
-##    for stindex in range(0,len(stoptions)):
-##        state.select_by_index(stindex)
-##        driver.implicitly_wait(6000)
-##        current_state =state.first_selected_option
-##        print('Current State -- '+current_state.text)
-##
-##        driver.implicitly_wait(2000)
-##        select_district=Select(driver.find_element_by_id('districtId')) # Venky changed element to elements
-##        dtoptions=select_district.options
-##        #print('The value of dtoptions is : '+str(dtoptions.text))
-##        driver.implicitly_wait(2000) #Added by Venky
-##
-##        for index in range(0,len(dtoptions)):
-##            try:
-##                  print('The new district index is '+str(index))
-##                  print(len(dtoptions))
-##                  driver.implicitly_wait(2000)
-##                  select_district.select_by_index(index)
-##                  driver.implicitly_wait(1000)
-##                  current_district = select_district.first_selected_option
-##
-##                 
-##                  driver.implicitly_wait(500)
-##                  catselect=Select(driver.find_element_by_id('categoryId'))
-##                  ctoptions = catselect.options
-##                  for ind in range(1,len(ctoptions)):
-##                        driver.implicitly_wait(500)
-##                        catselect.select_by_index(ind)
-##                        cat_opt=catselect.first_selected_option
-##                        print(cat_opt.text)
-##
-##                        driver.find_element_by_id("searchbutton").click() #added by Venky
-##
-##                        print('Just before new check for placeholder1 existence')
-##
-##                        if self.is_element_present(By.XPATH,'//*[@id="placeholder1"]'):                                      
-##                            table = driver.find_element_by_xpath('//*[@id="placeholder1"]/table/tbody')
-##                        else:
-##                            break
-##
-##                        conf_list = []
-##                        line = []
-##
-##                        if table is None:
-##                            print('No records found, quitting this loop')
-##                            break
-##                        print('before new tr')
-##                           
-##                     
-##                        #for row in table.find_elements_by_xpath('./tr'):
-##                        for row in table.find_elements_by_id("one"):
-##                            line = []
-##                            print('New Row')
-##                            print(row.text)
-####                            for col in row.find_elements_by_xpath('./td'):
-####                                name = col.text
-####                                print(name)
-####                                line.append(name)
-##                            #line.extend([year, current_state.text,current_district.text,cat_opt.text])
-##                            line.append(year)
-##                            line.append(current_state.text)
-##                            conf_list.append(line)
-##                                #print('Row Done')
-##                        del conf_list[0]
-##                        wb = openpyxl.load_workbook(template_name)
-##                        page = wb.active
-##                        for row in conf_list:
-##                            page.append(row)
-##                        wb.save(template_name)
-##                        print('Done for page no '+str(i))
-##
-##            except:
-##                  print('Failed District -- '+current_district.text)
-##                  print('Failed District in State '+current_state.text)
-##                  
-##
-##
