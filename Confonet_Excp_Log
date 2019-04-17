@@ -234,102 +234,147 @@ for year in year_list:
         f = open(Confonet_Log, "a")    
         print('The new state is : '+current_state,file=f)
         f.close()
+        try: # State List Block
         
-        state.select_by_visible_text(current_state)
-        time.sleep(5)
-        district=Select(driver.find_element_by_id('districtId')) 
-        dist_list = [o.text for o in district.options]
-        print(dist_list)
-        for current_district in dist_list:
-            print('The new district is : '+current_district)
-            district.select_by_visible_text(current_district)
+                state.select_by_visible_text(current_state)
+                time.sleep(5)
+                district=Select(driver.find_element_by_id('districtId')) 
+                dist_list = [o.text for o in district.options]
+                print(dist_list)
+                for current_district in dist_list:
+                    print('The new district is : '+current_district)
+                    try: #District List Block
+                            district.select_by_visible_text(current_district)
+                            for current_cat in cat_list:
+                                try:
+                                    
+                                    print('The new category is :'+current_cat)
+                                    cat.select_by_visible_text(current_cat)
+                                    #print('After selecting category in dropdown')
+                                    #time.sleep(5)
+                                    time.sleep(3)
 
-##            print('Before category loop')
-            for current_cat in cat_list:
-                try:
-                    
-                    print('The new category is :'+current_cat)
-                    cat.select_by_visible_text(current_cat)
-                    #print('After selecting category in dropdown')
-                    #time.sleep(5)
-                    time.sleep(3)
+                                    cat_opt=cat.first_selected_option
+                                    if (cat_opt.text == "Select"):
+                                        print('Selecting the category again...'+current_cat)
+                                        time.sleep(3)
+                                        cat.select_by_visible_text(current_cat)
+                                    
+                                    driver.find_element_by_id("searchbutton").click()
+                                    time.sleep(5)
+                                    #print("after clicking search")
 
-                    cat_opt=cat.first_selected_option
-                    if (cat_opt.text == "Select"):
-                        print('Selecting the category again...'+current_cat)
-                        time.sleep(3)
-                        cat.select_by_visible_text(current_cat)
-                    
-                    driver.find_element_by_id("searchbutton").click()
-                    time.sleep(5)
-                    #print("after clicking search")
+                                    search_count = 1
+                                    elem_id = "placeholder1"
+                                    try:
+                                          element = WebDriverWait(driver, 60).until(
+                                              EC.presence_of_element_located((By.ID, elem_id))
+                                          )
 
-                    search_count = 1
-                    elem_id = "placeholder1"
-                    try:
-                          element = WebDriverWait(driver, 60).until(
-                              EC.presence_of_element_located((By.ID, elem_id))
-                          )
+                                    except:
+                                          print('Likely no records for this combo...placeholder1 not detected..')
+                                          search_count = 0
+                                          sys.exit()
 
-                    except:
-                          print('Likely no records for this combo...placeholder1 not detected..')
-                          search_count = 0
-                          sys.exit()
+                                    if ("No Record(s) found" in driver.page_source):
+                                    #if search_count == 0 or ("No Record(s) found" in driver.page_source):
+                                        print('no records for this combo')
+                              
+                                    else:
+                                        print('Records exist for this combo of state+district+category...calling function')
+                                        #action_return = scrape_action(year, current_state, current_district, current_cat)
+                                        try:
+                                            
+                                                action_return = scrape_action(year, current_state, current_district, current_cat)
+                                                
+                                        except StaleElementReferenceException:
+                                            f = open(Confonet_Log, "a")
+                                            print('Stale Element Exception after scrape action call',file=f)
+                                            print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                                            print('continuing to the next category',file=f)
+                                            f.close()
+                                                                     
 
-                    if ("No Record(s) found" in driver.page_source):
-                    #if search_count == 0 or ("No Record(s) found" in driver.page_source):
-                        print('no records for this combo')
-              
-                    else:
-                        print('Records exist for this combo of state+district+category...calling function')
-                        #action_return = scrape_action(year, current_state, current_district, current_cat)
-                        try:
-                            
-                                action_return = scrape_action(year, current_state, current_district, current_cat)
-                                
-                        except StaleElementReferenceException:
+                                        except NoSuchElementException:
+                                            f = open(Confonet_Log, "a")                                
+                                            print('No Such Element Exception after scrape action',file=f)
+                                            print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                                            print('continuing to the next category',file=f)
+                                            f.close()
+
+                                        except:
+                                            f = open(Confonet_Log, "a")
+                                            print('General exception in the block...moving to the next loop',file=f)
+                                            print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                                            print('continuing to the next category',file=f)
+                                            f.close()
+
+                                            
+                                except StaleElementReferenceException: #Category List Looping Block
+                                    f = open(Confonet_Log, "a")
+                                    print('Category Block Stale Element Exception after scrape action call',file=f)
+                                    print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                                    print('continuing to the next category',file=f)
+                                    f.close()
+                                    
+                                except NoSuchElementException: #Category List Looping Block
+                                    f = open(Confonet_Log, "a")                                
+                                    print('Category Block No Such Element Exception after scrape action',file=f)
+                                    print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                                    print('continuing to the next category',file=f)
+                                    f.close()
+                      
+                                except: #Category List Looping Block
+                                    f = open(Confonet_Log, "a")
+                                    print('Category Block General exception in the block...moving to the next loop',file=f)
+                                    print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                                    print('continuing to the next category',file=f)
+                                    f.close()
+
+
+                    except StaleElementReferenceException: #District List Looping Block
                             f = open(Confonet_Log, "a")
-                            print('Stale Element Exception after scrape action call',file=f)
+                            print('District Block Stale Element Exception after scrape action call',file=f)
                             print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
                             print('continuing to the next category',file=f)
                             f.close()
-                                                     
-
-                        except NoSuchElementException:
+                            
+                    except NoSuchElementException: #District List Looping Block
                             f = open(Confonet_Log, "a")                                
-                            print('No Such Element Exception after scrape action',file=f)
+                            print('District Block No Such Element Exception after scrape action',file=f)
                             print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
                             print('continuing to the next category',file=f)
                             f.close()
 
-                        except:
+                    except: #District List Looping Block
                             f = open(Confonet_Log, "a")
-                            print('General exception in the block...moving to the next loop',file=f)
+                            print('District Block General exception in the block...moving to the next loop',file=f)
                             print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
                             print('continuing to the next category',file=f)
                             f.close()
 
-                            
-                except StaleElementReferenceException:
+        except StaleElementReferenceException: #State List Looping Block
                     f = open(Confonet_Log, "a")
-                    print('Category Block Stale Element Exception after scrape action call',file=f)
+                    print('State Block Stale Element Exception after scrape action call',file=f)
                     print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
                     print('continuing to the next category',file=f)
                     f.close()
                     
-                except NoSuchElementException:
+        except NoSuchElementException: #State List Looping Block
                     f = open(Confonet_Log, "a")                                
-                    print('Category Block No Such Element Exception after scrape action',file=f)
+                    print('State Block No Such Element Exception after scrape action',file=f)
                     print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
                     print('continuing to the next category',file=f)
                     f.close()
-      
-                except:
+
+        except: #State List Looping Block
                     f = open(Confonet_Log, "a")
-                    print('Category Block General exception in the block...moving to the next loop',file=f)
+                    print('State Block General exception in the block...moving to the next loop',file=f)
                     print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
                     print('continuing to the next category',file=f)
                     f.close()
+
+            
 
 
 
