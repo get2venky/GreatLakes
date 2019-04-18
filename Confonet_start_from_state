@@ -111,6 +111,7 @@ def scrape_action(year, current_state, current_district, current_cat):
 
                next_link = driver.find_element_by_xpath("//a[contains(text(), 'Next')]")
                next_link.click()
+               driver.implicitly_wait(10)
                print('Successfully clicked next')
 
             except:
@@ -174,7 +175,7 @@ year_list = [2008,2013,2018]
 #                       from that state rather than from the beginning.
 #                       WARNING: If you are not specifying a state, ensure that the parameter is set to "ALL"
 
-start_from_state = "ALL"
+start_from_state = "Chandigarh"
 
 # 3) start_from_district -- Same as above for State except that this parameter is for specifying the district within a State
 #                           Do ensure that if you specify this parameter, the corresponding state is also mentioned above to
@@ -221,12 +222,12 @@ for year in year_list:
 
     sdate.clear()
     sdate.send_keys(startd+str(year))
-    driver.implicitly_wait(100)
+    driver.implicitly_wait(10) #Venky changed from 100 to 10
 
     edate=driver.find_element_by_id("endDate")
     edate.clear()
     edate.send_keys(endd+str(year))
-    driver.implicitly_wait(100)
+    driver.implicitly_wait(10) #Venky changed from 100 to 10
 
     driver.find_element_by_xpath('//*[@id="searchBy"]/option[8]').click()
     statelist=driver.find_element_by_xpath('//*[@id="stateId"]').click()
@@ -421,8 +422,3 @@ for year in year_list:
                     f.close()
 
             
-
-
-
-                    
-
