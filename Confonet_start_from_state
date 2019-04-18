@@ -175,13 +175,13 @@ year_list = [2008,2013,2018]
 #                       from that state rather than from the beginning.
 #                       WARNING: If you are not specifying a state, ensure that the parameter is set to "ALL"
 
-start_from_state = "Chandigarh"
+start_from_state = "ALL"
 
 # 3) start_from_district -- Same as above for State except that this parameter is for specifying the district within a State
 #                           Do ensure that if you specify this parameter, the corresponding state is also mentioned above to
 #                           avoid an invalid combo.
 
-start_from_district = "DF-II"
+start_from_district = "ALL"
 
 
 ############-----------------##########################SETUP SECTION###################--------------##########################
