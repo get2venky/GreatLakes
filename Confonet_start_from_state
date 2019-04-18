@@ -181,7 +181,7 @@ start_from_state = "Chandigarh"
 #                           Do ensure that if you specify this parameter, the corresponding state is also mentioned above to
 #                           avoid an invalid combo.
 
-start_from_district = "ALL"
+start_from_district = "DF-II"
 
 
 ############-----------------##########################SETUP SECTION###################--------------##########################
@@ -198,7 +198,7 @@ for year in year_list:
 
     title_row = [['CaseNo','Complainant','Respondent','CompAdvocate','RespAdvocate','DOF','DOD','DOU','GetPDF','Year','State','District','Sector','Outer_HTML'],[]]
 
-    template_name = 'confo_'+str(year)
+    template_name = 'confo_'+str(year)+'_'+now
     
     with open(template_name, "w") as csv_file:
             writer = csv.writer(csv_file, delimiter='|')
@@ -285,8 +285,32 @@ for year in year_list:
                 district=Select(driver.find_element_by_id('districtId')) 
                 dist_list = [o.text for o in district.options]                  
                 f = open(Confonet_Log, "a")              
-                print(dist_list,file=f)
+##                print(dist_list,file=f)
                 f.close()
+
+
+                try: #filtering district list if start_from_district param is set to a certain state rater than ALL.
+
+                        if start_from_district != 'ALL' and start_from_state == current_state:
+                                pos = dist_list.index(start_from_district)
+                                dist_list = dist_list[pos:]
+                                f = open(Confonet_Log, "a")
+                                print('The trimmed District List starting from '+start_from_district+' is :',file=f)
+                                print(dist_list,file=f)
+                                f.close()
+                        else:
+                                f = open(Confonet_Log, "a")
+                                print('The start_from_district is set to ALL or state and district start from settings do not match')
+                                print('The full District List is being considered by default :',file=f)
+                                print(dist_list,file=f)
+                                f.close()                
+
+                except:
+                    f = open(Confonet_Log, "a")
+                    print('Error occured while trying to trim district list as per start from param, taking full state list by default',file=f)
+                    f.close()
+
+              
                 
                 for current_district in dist_list:
                     print('The new district is : '+current_district)
@@ -422,3 +446,8 @@ for year in year_list:
                     f.close()
 
             
+
+
+
+                    
+
