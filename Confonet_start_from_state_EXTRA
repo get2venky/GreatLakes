@@ -1,0 +1,497 @@
+#! python3
+# Confonet2.py - To scrape data from confonet site
+
+
+import sys
+import selenium
+import time
+import datetime
+from datetime import timedelta
+import os
+
+from selenium import webdriver
+from selenium.webdriver.support.ui import Select
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common import exceptions
+from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import StaleElementReferenceException
+#import openpyxl
+#from openpyxl import Workbook
+#from openpyxl.styles import Font
+#import pandas as pd
+import csv
+
+
+def scrape_action(year, current_state, current_district, current_cat):
+##    try:
+
+        f = open(Confonet_Log, "a")
+        print('Records exist for this combo of'+ '-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+        f.close()
+        
+        for j in range(1,175):
+        
+            table = driver.find_element_by_xpath('//*[@id="placeholder1"]/table/tbody')
+            conf_list = []
+            line = []
+            i=0
+            for row in table.find_elements_by_id("one"):
+                #print('--------------------------------------New Row--------------------------------------------')
+                #print(row.text)
+                i= i+1
+                if i==1:
+                    #print('skipping this loop as it is the header')
+                    pass
+                else:
+                    line = []
+                    
+                    col_count = 1
+                    outer_html = 'No Link Found'
+
+                    for col in row.find_elements_by_xpath('./td'):
+                        try:
+##                            print('col_count is............'+str(col_count))
+##                            col_count = col_count+1
+##                            elem = col.find_element_by_xpath("//a[@href]")
+                            #print(col.text)
+                              if col_count == 1:
+                                      #print (col.get_attribute('outerHTML'))
+                                      outer_html = col.get_attribute('outerHTML')
+                                      col_count = col_count + 1
+                            #print (col.get_attribute('innerHTML'))
+                 
+                        except:
+                            print('No href for this element')
+                                  
+                        line.append(col.text)
+                    
+                    line.append(year)
+                    line.append(current_state)
+                    line.append(current_district)
+                    line.append(current_cat)
+                    line.append(outer_html)
+                    #print('The line is :')
+                    #print(line)
+                    conf_list.append(line)
+                        #print('Row Done')
+                    #del conf_list[0]
+
+                    #print(conf_list)
+##            wb = openpyxl.load_workbook(template_name)
+##            page = wb.active
+            #print('The CONF_LIST IS :')
+            #print(conf_list)
+##            for row in conf_list:
+##                page.append(row)
+##            wb.save(template_name)
+                #print('Done for page no '+str(i))
+
+
+
+            #sys.exit()
+
+
+
+            with open(template_name,'a') as csv_file:
+                writer = csv.writer(csv_file, delimiter='|')
+                for line in conf_list:
+                    writer.writerow(line)
+            f = open(Confonet_Log, "a")            
+            print('Done for page no '+str(j),file=f)
+            print('Attempting to click the next if it exists',file=f)
+            f.close()
+            
+            try:
+
+##             next_link = browser.find_element_by_link_text('Next')
+##               next_link = browser.find_elements_by_link_text('Next')[0]
+##               browser.implicitly_wait(20)
+##               next_link.click()
+
+
+               next_link = driver.find_element_by_xpath("//a[contains(text(), 'Next')]")
+               next_link.click()
+               driver.implicitly_wait(10)
+               f = open(Confonet_Log, "a")
+               print('Successfully clicked next',file=f)
+               f.close()
+            except:
+               f = open(Confonet_Log, "a")
+               print('Seems last page is reached...moving to the next combo',file=f)           
+               f.close()
+               break
+            f = open(Confonet_Log, "a")
+            print('End of loop with page no '+str(j+1),file=f)
+            f.close()
+
+##        return 1
+
+##    except StaleElementReferenceException:
+##        print('Stale Element Exception...exiting scrape_action function')
+##        return 2   
+##    except:
+##        return 3
+
+
+
+
+driver = webdriver.Chrome(executable_path='chromedriver')
+driver.get('http://cms.nic.in/ncdrcusersWeb/search.do?method=loadSearchPub')
+
+
+dtof = driver.find_element_by_id("dtof")
+dtof.click()
+startd="1/1/"
+endd="31/12/"
+sdate=driver.find_element_by_id("stDate")
+edate=driver.find_element_by_id("endDate")
+
+
+
+############----------------##########################SET UP SECTION####################-------------########################
+
+#---------------------EACH MEMBER TO CUSTOMIZE THE BELOW LINES AND CHANGE PARAMETERS AS REQUIRED----------------------------#
+
+# 1) year  logic - tailor the below list as per the years assigned to you.
+
+year_list = [2008,2013,2018]
+
+# 2) start_from_state - The default setting is "ALL" which means it will start from NCDRC followed by Andaman, Andhra Pradesh
+#                       in that alphabetical order. If you modify this parameter to start from a specific state, please give
+#                       the name exactly as in the Confonet state dropdown. If you change this parameter, the program will start
+#                       from that state rather than from the beginning.
+#                       WARNING: If you are not specifying a state, ensure that the parameter is set to "ALL"
+
+start_from_state = "ALL"
+
+# 3) start_from_district -- Same as above for State except that this parameter is for specifying the district within a State
+#                           Do ensure that if you specify this parameter, the corresponding state is also mentioned above to
+#                           avoid an invalid combo.
+
+start_from_district = "ALL"
+
+
+############-----------------##########################SETUP SECTION###################--------------##########################
+
+
+for year in year_list:
+
+#for year in range(2004,2019):
+
+##    book = Workbook()
+##    template_name = 'Confonet-'+str(year)+'.xlsx'
+##    print('The generated name is '+template_name)
+##    book.save(template_name)
+
+    now = datetime.datetime.now()
+    now = now.strftime('%d%b%y-%H%M%S')
+    Confonet_Log = 'LOG_'+str(year)+'_'+now  #Create the error log before opening the loop
+   
+    f = open(Confonet_Log, "a")
+    print("---------------------------------CONFONET MESSAGE LOG----------------------------------", file=f)
+    f.close()
+
+    f = open(Confonet_Log, "a")
+    print("Program Execution Started At "+now,file=f)
+    f.close()
+
+
+
+    title_row = [['CaseNo','Complainant','Respondent','CompAdvocate','RespAdvocate','DOF','DOD','DOU','GetPDF','Year','State','District','Sector','Outer_HTML'],[]]
+
+    template_name = 'DATA_'+str(year)+'_'+now
+    
+    with open(template_name, "w") as csv_file:
+            writer = csv.writer(csv_file, delimiter='|')
+            for line in title_row:
+                writer.writerow(line)
+
+
+
+    
+    #sys.exit()
+            
+##    wb = openpyxl.load_workbook(template_name)
+##    page = wb.active
+##    page.title = 'Template'
+##    page.append(title_row)
+##      
+##    wb.save(template_name)
+
+
+
+
+    sdate.clear()
+    sdate.send_keys(startd+str(year))
+    driver.implicitly_wait(10) #Venky changed from 100 to 10
+
+    edate=driver.find_element_by_id("endDate")
+    edate.clear()
+    edate.send_keys(endd+str(year))
+    driver.implicitly_wait(10) #Venky changed from 100 to 10
+
+    driver.find_element_by_xpath('//*[@id="searchBy"]/option[8]').click()
+    statelist=driver.find_element_by_xpath('//*[@id="stateId"]').click()
+
+
+    state=Select(driver.find_element_by_id('stateId'))
+    state_list = [o.text for o in state.options]
+
+    try: #filtering state list if start_from_state param is set to a certain state rater than ALL.
+
+        if start_from_state != 'ALL':
+                pos = state_list.index(start_from_state)
+                state_list = state_list[pos:]
+                f = open(Confonet_Log, "a")
+                print('The trimmed State List starting from '+start_from_state+' is :',file=f)
+                print(state_list,file=f)
+                f.close()
+        else:
+                f = open(Confonet_Log, "a")
+                print('The start_from_state is set to ALL')
+                print('The State List is :',file=f)
+                print(state_list,file=f)
+                f.close()                
+
+    except:
+            f = open(Confonet_Log, "a")
+            print('Error occured while trying to trim state list, taking full state list by default',file=f)
+            f.close()
+            
+
+    #####sys.exit() #####################---------------DANGER---------------------------####################
+
+    
+
+
+    cat=Select(driver.find_element_by_id('categoryId'))
+    cat_list = [o.text for o in cat.options]
+    cat_list = cat_list[1:]
+##    print(cat_list)
+    f = open(Confonet_Log, "a")
+    print('The Category List is :',file=f)
+    print(cat_list,file=f)
+    f.close()
+
+    #sys.exit()
+
+    for current_state in state_list:
+        now = datetime.datetime.now()
+        now = now.strftime('%H%M%S')
+        f = open(Confonet_Log, "a")
+        print('============NEW STATE=========== '+current_state+' ============NEW STATE===========',file=f)
+        print ('State loop started at '+now,file=f)
+        f.close()
+        try: # State List Block
+        
+                state.select_by_visible_text(current_state)
+                time.sleep(5)
+                district=Select(driver.find_element_by_id('districtId')) 
+                dist_list = [o.text for o in district.options]                  
+                f = open(Confonet_Log, "a")              
+##                print(dist_list,file=f)
+                f.close()
+
+
+                try: #filtering district list if start_from_district param is set to a certain state rater than ALL.
+
+                        if start_from_district != 'ALL' and start_from_state == current_state:
+                                pos = dist_list.index(start_from_district)
+                                dist_list = dist_list[pos:]
+                                f = open(Confonet_Log, "a")
+                                print('The trimmed District List starting from '+start_from_district+' is :',file=f)
+                                print(dist_list,file=f)
+                                f.close()
+                        else:
+                                f = open(Confonet_Log, "a")
+                                print('The start_from_district is set to ALL or state and district start from settings do not match',file=f)
+                                print('The full District List is being considered by default :',file=f)
+                                print(dist_list,file=f)
+                                f.close()                
+
+                except:
+                    f = open(Confonet_Log, "a")
+                    print('Error occured while trying to trim district list as per start from param, taking full state list by default',file=f)
+                    f.close()
+
+              
+                
+                for current_district in dist_list:
+                    now = datetime.datetime.now()
+                    now = now.strftime('%H%M%S')
+                    f = open(Confonet_Log, "a")
+                    print('============NEW DISTRICT=========== '+current_district+' ============NEW DISTRICT===========',file=f)
+                    print ('District loop started at '+now,file=f)
+                    f.close()
+                    try: #District List Block
+                            district.select_by_visible_text(current_district)
+                            for current_cat in cat_list:
+                                try:
+                                    f = open(Confonet_Log, "a")
+                                    print('The new category is:'+current_cat,file=f)
+                                    f.close()
+                                    
+                                    cat.select_by_visible_text(current_cat)
+                                    #print('After selecting category in dropdown')
+                                    #time.sleep(5)
+                                    time.sleep(3)
+
+                                    cat_opt=cat.first_selected_option
+                                    if (cat_opt.text == "Select"):
+                                        f = open(Confonet_Log, "a")
+                                        print('Selecting the category again...'+current_cat,file=f)
+                                        f.close()
+                                        time.sleep(3)
+                                        cat.select_by_visible_text(current_cat)
+                                    
+                                    driver.find_element_by_id("searchbutton").click()
+                                    time.sleep(5)
+                                    #print("after clicking search")
+
+                                    search_count = 1
+                                    elem_id = "placeholder1"
+                                    try:
+                                          element = WebDriverWait(driver, 60).until(
+                                              EC.presence_of_element_located((By.ID, elem_id))
+                                          )
+
+                                    except:
+                                          print('Likely no records for this combo...placeholder1 not detected..')
+                                          search_count = 0
+                                          sys.exit()
+
+                                    if ("No Record(s) found" in driver.page_source):
+                                    #if search_count == 0 or ("No Record(s) found" in driver.page_source):
+##                                        f = open(Confonet_Log, "a")
+##                                        print('no records for this combo',file=f)
+##                                        f.close()
+                                          pass
+                              
+                                    else:
+##                                        f = open(Confonet_Log, "a")
+##                                        print('Records exist for this combo of state+district+category...calling function',file=f)
+##                                        f.close()
+                                        #action_return = scrape_action(year, current_state, current_district, current_cat)
+                                        try:
+                                            
+                                                action_return = scrape_action(year, current_state, current_district, current_cat)
+                                                
+                                        except StaleElementReferenceException:
+                                            f = open(Confonet_Log, "a")
+                                            print('Stale Element Exception after scrape action call',file=f)
+                                            print('FAILEDCOMBO1 : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                                            print('Calling scrape action once again for the same combo',file=f)
+                                            f.close()
+
+                                            try:
+                                                action_return = scrape_action(year, current_state, current_district, current_cat)
+
+                                            except:
+                                                 f = open(Confonet_Log, "a")
+                                                 print('Second call to scrape action for the same combo failed, hence continuing to the next category',file=f)
+                                                 print('FAILEDCOMBO2 : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                                                 f.close()                    
+
+                                        except NoSuchElementException:
+                                            f = open(Confonet_Log, "a")                                
+                                            print('No Such Element Exception after scrape action',file=f)
+                                            print('FAILEDCOMBO1 : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                                            print('Calling scrape action once again for the same combo',file=f)
+                                            f.close()
+                                            try:
+                                                action_return = scrape_action(year, current_state, current_district, current_cat)
+
+                                            except:
+                                                 f = open(Confonet_Log, "a")
+                                                 print('Second call to scrape action for the same combo failed, hence continuing to the next category',file=f)
+                                                 print('FAILEDCOMBO2 : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                                                 f.close()
+
+                                        except:
+                                            f = open(Confonet_Log, "a")
+                                            print('General exception in the block...moving to the next loop',file=f)
+                                            print('FAILEDCOMBO1 : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                                            print('Calling scrape action once again for the same combo',file=f)
+                                            f.close()
+
+                                            try:
+                                                action_return = scrape_action(year, current_state, current_district, current_cat)
+                                            except:
+                                                 f = open(Confonet_Log, "a")
+                                                 print('FAILEDCOMBO2 : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                                                 print('Second call to scrape action for the same combo failed, hence continuing to the next category',file=f)
+                                                 f.close()
+
+                                except StaleElementReferenceException: #Category List Looping Block
+                                    f = open(Confonet_Log, "a")
+                                    print('Category Block Stale Element Exception after scrape action call',file=f)
+                                    print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                                    print('continuing to the next category',file=f)
+                                    f.close()
+                                    
+                                except NoSuchElementException: #Category List Looping Block
+                                    f = open(Confonet_Log, "a")                                
+                                    print('Category Block No Such Element Exception after scrape action',file=f)
+                                    print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                                    print('continuing to the next category',file=f)
+                                    f.close()
+                      
+                                except: #Category List Looping Block
+                                    f = open(Confonet_Log, "a")
+                                    print('Category Block General exception in the block...moving to the next loop',file=f)
+                                    print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                                    print('continuing to the next category',file=f)
+                                    f.close()
+
+
+                    except StaleElementReferenceException: #District List Looping Block
+                            f = open(Confonet_Log, "a")
+                            print('District Block Stale Element Exception after scrape action call',file=f)
+                            print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                            print('continuing to the next category',file=f)
+                            f.close()
+                            
+                    except NoSuchElementException: #District List Looping Block
+                            f = open(Confonet_Log, "a")                                
+                            print('District Block No Such Element Exception after scrape action',file=f)
+                            print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                            print('continuing to the next category',file=f)
+                            f.close()
+
+                    except: #District List Looping Block
+                            f = open(Confonet_Log, "a")
+                            print('District Block General exception in the block...moving to the next loop',file=f)
+                            print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                            print('continuing to the next category',file=f)
+                            f.close()
+
+        except StaleElementReferenceException: #State List Looping Block
+                    f = open(Confonet_Log, "a")
+                    print('State Block Stale Element Exception after scrape action call',file=f)
+                    print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                    print('continuing to the next category',file=f)
+                    f.close()
+                    
+        except NoSuchElementException: #State List Looping Block
+                    f = open(Confonet_Log, "a")                                
+                    print('State Block No Such Element Exception after scrape action',file=f)
+                    print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                    print('continuing to the next category',file=f)
+                    f.close()
+
+        except: #State List Looping Block
+                    f = open(Confonet_Log, "a")
+                    print('State Block General exception in the block...moving to the next loop',file=f)
+                    print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                    print('continuing to the next category',file=f)
+                    f.close()
+
+            
+
+
+
+                    
+
