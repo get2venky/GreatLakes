@@ -1,0 +1,358 @@
+#! python3
+# Confonet2.py - To scrape data from confonet site
+
+
+import sys
+import selenium
+import time
+import datetime
+from datetime import timedelta
+import os
+
+from selenium import webdriver
+from selenium.webdriver.support.ui import Select
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common import exceptions
+from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import StaleElementReferenceException
+from selenium.common.exceptions import UnexpectedAlertPresentException
+#import openpyxl
+#from openpyxl import Workbook
+#from openpyxl.styles import Font
+#import pandas as pd
+import csv
+
+
+driver = webdriver.Chrome(executable_path='chromedriver')
+driver.get('http://cms.nic.in/ncdrcusersWeb/search.do?method=loadSearchPub')
+
+
+dtof = driver.find_element_by_id("dtof")
+dtof.click()
+startd="1/1/"
+endd="31/12/"
+sdate=driver.find_element_by_id("stDate")
+edate=driver.find_element_by_id("endDate")
+
+
+
+############----------------##########################SET UP SECTION####################-------------########################
+
+#---------------------EACH MEMBER TO CUSTOMIZE THE BELOW LINES AND CHANGE PARAMETERS AS REQUIRED----------------------------#
+
+# 1) year  logic - tailor the below list as per the years assigned to you.
+
+year_list = [2008,2013,2018]
+
+# 2) start_from_state - The default setting is "ALL" which means it will start from NCDRC followed by Andaman, Andhra Pradesh
+#                       in that alphabetical order. If you modify this parameter to start from a specific state, please give
+#                       the name exactly as in the Confonet state dropdown. If you change this parameter, the program will start
+#                       from that state rather than from the beginning.
+#                       WARNING: If you are not specifying a state, ensure that the parameter is set to "ALL"
+
+start_from_state = "ALL"
+
+# 3) start_from_district -- Same as above for State except that this parameter is for specifying the district within a State
+#                           Do ensure that if you specify this parameter, the corresponding state is also mentioned above to
+#                           avoid an invalid combo.
+
+start_from_district = "ALL"
+
+
+############-----------------##########################SETUP SECTION###################--------------##########################
+
+
+for year in year_list:
+
+    now = datetime.datetime.now()
+    now = now.strftime('%d%b%y-%H%M%S')
+    Confonet_Log = 'COMBOLOG_'+str(year)+'_'+now  #Create the error log before opening the loop
+   
+    f = open(Confonet_Log, "a")
+    print("---------------------------------CONFONET MESSAGE LOG----------------------------------", file=f)
+    f.close()
+
+    f = open(Confonet_Log, "a")
+    print("Program Execution Started At "+now,file=f)
+    f.close()
+
+
+
+    title_row = [['Year','State','District','Category'],[]]
+
+    template_name = 'COMBODATA_'+str(year)+'_'+now
+    
+    with open(template_name, "w") as csv_file:
+            writer = csv.writer(csv_file, delimiter='|')
+            for line in title_row:
+                writer.writerow(line)
+
+    sdate.clear()
+    sdate.send_keys(startd+str(year))
+    driver.implicitly_wait(10) #Venky changed from 100 to 10
+
+    edate=driver.find_element_by_id("endDate")
+    edate.clear()
+    edate.send_keys(endd+str(year))
+    driver.implicitly_wait(10) #Venky changed from 100 to 10
+
+    driver.find_element_by_xpath('//*[@id="searchBy"]/option[8]').click()
+    statelist=driver.find_element_by_xpath('//*[@id="stateId"]').click()
+
+
+    state=Select(driver.find_element_by_id('stateId'))
+    state_list = [o.text for o in state.options]
+
+    try: #filtering state list if start_from_state param is set to a certain state rater than ALL.
+
+        if start_from_state != 'ALL':
+                pos = state_list.index(start_from_state)
+                state_list = state_list[pos:]
+                f = open(Confonet_Log, "a")
+                print('The trimmed State List starting from '+start_from_state+' is :',file=f)
+                print(state_list,file=f)
+                f.close()
+        else:
+                f = open(Confonet_Log, "a")
+                print('The start_from_state is set to ALL')
+                print('The State List is :',file=f)
+                print(state_list,file=f)
+                f.close()                
+
+    except:
+            f = open(Confonet_Log, "a")
+            print('Error occured while trying to trim state list, taking full state list by default',file=f)
+            f.close()
+            
+
+    cat=Select(driver.find_element_by_id('categoryId'))
+    cat_list = [o.text for o in cat.options]
+    cat_list = cat_list[1:]
+##    print(cat_list)
+    f = open(Confonet_Log, "a")
+    print('The Category List is :',file=f)
+    print(cat_list,file=f)
+    f.close()
+
+    #sys.exit()
+
+    for current_state in state_list:
+        now = datetime.datetime.now()
+        now = now.strftime('%H%M%S')
+        f = open(Confonet_Log, "a")
+        print('============NEW STATE=========== '+current_state+' ============NEW STATE===========',file=f)
+        print ('State loop started at '+now,file=f)
+        f.close()
+        try: # State List Block
+        
+                state.select_by_visible_text(current_state)
+                #time.sleep(5) venky 24Apr
+                district=Select(driver.find_element_by_id('districtId')) 
+                dist_list = [o.text for o in district.options]                  
+                f = open(Confonet_Log, "a")              
+##                print(dist_list,file=f)
+                f.close()
+
+
+                try: #filtering district list if start_from_district param is set to a certain state rater than ALL.
+
+                        if start_from_district != 'ALL' and start_from_state == current_state:
+                                pos = dist_list.index(start_from_district)
+                                dist_list = dist_list[pos:]
+                                f = open(Confonet_Log, "a")
+                                print('The trimmed District List starting from '+start_from_district+' is :',file=f)
+                                print(dist_list,file=f)
+                                f.close()
+                        else:
+                                f = open(Confonet_Log, "a")
+                                print('The start_from_district is set to ALL or state and district start from settings do not match',file=f)
+                                print('The full District List is being considered by default :',file=f)
+                                print(dist_list,file=f)
+                                f.close()                
+
+                except:
+                    f = open(Confonet_Log, "a")
+                    print('Error occured while trying to trim district list as per start from param, taking full state list by default',file=f)
+                    f.close()
+
+              
+                
+                for current_district in dist_list:
+                    now = datetime.datetime.now()
+                    now = now.strftime('%H%M%S')
+                    f = open(Confonet_Log, "a")
+                    print('============NEW DISTRICT=========== '+current_district+' ============NEW DISTRICT===========',file=f)
+                    print ('District loop started at '+now,file=f)
+                    f.close()
+                    try: #District List Block
+                            district.select_by_visible_text(current_district)
+                            for current_cat in cat_list:
+                                try:
+                                    f = open(Confonet_Log, "a")
+                                    print('The new category is:'+current_cat,file=f)
+                                    f.close()
+                                    
+                                    cat.select_by_visible_text(current_cat)
+                                    #print('After selecting category in dropdown')
+                                    #time.sleep(5)
+                                    #time.sleep(3) venky 24Apr
+
+                                    cat_opt=cat.first_selected_option
+                                    if (cat_opt.text == "Select"):
+                                        f = open(Confonet_Log, "a")
+                                        print('Selecting the category again...'+current_cat,file=f)
+                                        f.close()
+                                        # time.sleep(3) venky 24Apr
+                                        cat.select_by_visible_text(current_cat)
+                                    
+                                    driver.find_element_by_id("searchbutton").click()
+                                    time.sleep(3)#venky 24Apr
+                                    #print("after clicking search")
+
+                                    search_count = 1
+                                    elem_id = "placeholder1"
+                                    try:
+                                          element = WebDriverWait(driver, 60).until(
+                                              EC.presence_of_element_located((By.ID, elem_id))
+                                          )
+
+                                    except:
+                                          print('Likely no records for this combo...placeholder1 not detected..')
+                                          search_count = 0
+                                          sys.exit()
+
+                                    if ("No Record(s) found" in driver.page_source):
+                                          pass
+                              
+                                    else:
+
+                                        try:
+                                            
+                                                #action_return = scrape_action(year, current_state, current_district, current_cat)
+
+                                                 line = [year, current_state,current_district,current_cat]
+                                                 
+                                                 with open(template_name,'a') as csv_file:
+                                                         writer = csv.writer(csv_file, delimiter='|')
+                                                         writer.writerow(line)
+                                                 f = open(Confonet_Log, "a")            
+                                                 print('Writing to Log successful',file=f)
+                                                 f.close()
+     
+                                        except StaleElementReferenceException:
+                                            f = open(Confonet_Log, "a")
+                                            print('Stale Element Exception after data write attempt',file=f)
+                                            print('FAILEDCOMBO1 : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+##                                            print('Calling scrape action once again for the same combo',file=f)
+                                            f.close()
+
+                                        except NoSuchElementException:
+                                            f = open(Confonet_Log, "a")                                
+                                            print('No Such Element Exception after data write atttempt',file=f)
+                                            print('FAILEDCOMBO1 : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+##                                            print('Calling scrape action once again for the same combo',file=f)
+                                            f.close()
+
+                                        except UnexpectedAlertPresentException:
+                                                 f = open(Confonet_Log, "a")
+                                                 print('Seems session with Confonent website has ended, terminating the program',file=f)
+                                                 f.close()
+                                                 sys.exit()
+                                             
+                                        
+                                        except:
+                                            f = open(Confonet_Log, "a")
+                                            print('General exception in the block...moving to the next loop',file=f)
+                                            print('FAILEDCOMBO1 : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+##                                            print('Calling scrape action once again for the same combo',file=f)
+                                            f.close()
+
+
+                                except StaleElementReferenceException: #Category List Looping Block
+                                    f = open(Confonet_Log, "a")
+                                    print('Category Block Stale Element Exception',file=f)
+                                    print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                                    print('continuing to the next category',file=f)
+                                    f.close()
+                                    
+                                except NoSuchElementException: #Category List Looping Block
+                                    f = open(Confonet_Log, "a")                                
+                                    print('Category Block No Such Element Exception',file=f)
+                                    print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                                    print('continuing to the next category',file=f)
+                                    f.close()
+
+                                except UnexpectedAlertPresentException:
+                                    f = open(Confonet_Log, "a")
+                                    print('Seems session with Confonent website has ended, terminating the program',file=f)
+                                    f.close()
+                                    sys.exit()
+                      
+                                except: #Category List Looping Block
+                                    f = open(Confonet_Log, "a")
+                                    print('Category Block General exception in the block',file=f)
+                                    print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                                    print('continuing to the next category',file=f)
+                                    f.close()
+
+
+                    except StaleElementReferenceException: #District List Looping Block
+                            f = open(Confonet_Log, "a")
+                            print('District Block Stale Element Exception',file=f)
+                            print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                            print('continuing to the next district',file=f)
+                            f.close()
+                            
+                    except NoSuchElementException: #District List Looping Block
+                            f = open(Confonet_Log, "a")                                
+                            print('District Block No Such Element Exception',file=f)
+                            print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                            print('continuing to the next district',file=f)
+                            f.close()
+                    except UnexpectedAlertPresentException:
+                            f = open(Confonet_Log, "a")
+                            print('Seems session with Confonent website has ended, terminating the program',file=f)
+                            f.close()
+                            sys.exit()
+
+                    except: #District List Looping Block
+                            f = open(Confonet_Log, "a")
+                            print('District Block General exception in the block',file=f)
+                            print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                            print('continuing to the next district',file=f)
+                            f.close()
+
+        except StaleElementReferenceException: #State List Looping Block
+                    f = open(Confonet_Log, "a")
+                    print('State Block Stale Element Exception',file=f)
+                    print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                    print('continuing to the next state',file=f)
+                    f.close()
+                    
+        except NoSuchElementException: #State List Looping Block
+                    f = open(Confonet_Log, "a")                                
+                    print('State Block No Such Element Exception',file=f)
+                    print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                    print('continuing to the next state',file=f)
+                    f.close()
+        except UnexpectedAlertPresentException:
+                            f = open(Confonet_Log, "a")
+                            print('Seems session with Confonent website has ended, terminating the program',file=f)
+                            f.close()
+                            sys.exit()
+        except: #State List Looping Block
+                    f = open(Confonet_Log, "a")
+                    print('State Block General exception in the block',file=f)
+                    print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                    print('continuing to the next state',file=f)
+                    f.close()
+
+            
+
+
+
+                    
+
