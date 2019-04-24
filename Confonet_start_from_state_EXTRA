@@ -18,6 +18,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common import exceptions
 from selenium.common.exceptions import NoSuchElementException
 from selenium.common.exceptions import StaleElementReferenceException
+from selenium.common.exceptions import UnexpectedAlertPresentException
 #import openpyxl
 #from openpyxl import Workbook
 #from openpyxl.styles import Font
@@ -32,7 +33,7 @@ def scrape_action(year, current_state, current_district, current_cat):
         print('Records exist for this combo of'+ '-'+current_state+'-'+current_district+'-'+current_cat,file=f)
         f.close()
         
-        for j in range(1,1000):
+        for j in range(1,175):
         
             table = driver.find_element_by_xpath('//*[@id="placeholder1"]/table/tbody')
             conf_list = []
@@ -410,6 +411,14 @@ for year in year_list:
                                                  print('FAILEDCOMBO2 : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
                                                  f.close()
 
+
+                                        except UnexpectedAlertPresentException:
+                                                 f = open(Confonet_Log, "a")
+                                                 print('Seems session with Confonent website has ended, terminating the program',file=f)
+                                                 f.close()
+                                                 sys.exit()
+                                             
+                                        
                                         except:
                                             f = open(Confonet_Log, "a")
                                             print('General exception in the block...moving to the next loop',file=f)
@@ -427,21 +436,27 @@ for year in year_list:
 
                                 except StaleElementReferenceException: #Category List Looping Block
                                     f = open(Confonet_Log, "a")
-                                    print('Category Block Stale Element Exception after scrape action call',file=f)
+                                    print('Category Block Stale Element Exception',file=f)
                                     print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
                                     print('continuing to the next category',file=f)
                                     f.close()
                                     
                                 except NoSuchElementException: #Category List Looping Block
                                     f = open(Confonet_Log, "a")                                
-                                    print('Category Block No Such Element Exception after scrape action',file=f)
+                                    print('Category Block No Such Element Exception',file=f)
                                     print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
                                     print('continuing to the next category',file=f)
                                     f.close()
+
+                                except UnexpectedAlertPresentException:
+                                    f = open(Confonet_Log, "a")
+                                    print('Seems session with Confonent website has ended, terminating the program',file=f)
+                                    f.close()
+                                    sys.exit()
                       
                                 except: #Category List Looping Block
                                     f = open(Confonet_Log, "a")
-                                    print('Category Block General exception in the block...moving to the next loop',file=f)
+                                    print('Category Block General exception in the block',file=f)
                                     print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
                                     print('continuing to the next category',file=f)
                                     f.close()
@@ -449,44 +464,53 @@ for year in year_list:
 
                     except StaleElementReferenceException: #District List Looping Block
                             f = open(Confonet_Log, "a")
-                            print('District Block Stale Element Exception after scrape action call',file=f)
+                            print('District Block Stale Element Exception',file=f)
                             print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
-                            print('continuing to the next category',file=f)
+                            print('continuing to the next district',file=f)
                             f.close()
                             
                     except NoSuchElementException: #District List Looping Block
                             f = open(Confonet_Log, "a")                                
-                            print('District Block No Such Element Exception after scrape action',file=f)
+                            print('District Block No Such Element Exception',file=f)
                             print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
-                            print('continuing to the next category',file=f)
+                            print('continuing to the next district',file=f)
                             f.close()
+                    except UnexpectedAlertPresentException:
+                            f = open(Confonet_Log, "a")
+                            print('Seems session with Confonent website has ended, terminating the program',file=f)
+                            f.close()
+                            sys.exit()
 
                     except: #District List Looping Block
                             f = open(Confonet_Log, "a")
-                            print('District Block General exception in the block...moving to the next loop',file=f)
+                            print('District Block General exception in the block',file=f)
                             print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
-                            print('continuing to the next category',file=f)
+                            print('continuing to the next district',file=f)
                             f.close()
 
         except StaleElementReferenceException: #State List Looping Block
                     f = open(Confonet_Log, "a")
-                    print('State Block Stale Element Exception after scrape action call',file=f)
+                    print('State Block Stale Element Exception',file=f)
                     print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
-                    print('continuing to the next category',file=f)
+                    print('continuing to the next state',file=f)
                     f.close()
                     
         except NoSuchElementException: #State List Looping Block
                     f = open(Confonet_Log, "a")                                
-                    print('State Block No Such Element Exception after scrape action',file=f)
+                    print('State Block No Such Element Exception',file=f)
                     print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
-                    print('continuing to the next category',file=f)
+                    print('continuing to the next state',file=f)
                     f.close()
-
+        except UnexpectedAlertPresentException:
+                            f = open(Confonet_Log, "a")
+                            print('Seems session with Confonent website has ended, terminating the program',file=f)
+                            f.close()
+                            sys.exit()
         except: #State List Looping Block
                     f = open(Confonet_Log, "a")
-                    print('State Block General exception in the block...moving to the next loop',file=f)
+                    print('State Block General exception in the block',file=f)
                     print('The error combo is : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
-                    print('continuing to the next category',file=f)
+                    print('continuing to the next state',file=f)
                     f.close()
 
             
