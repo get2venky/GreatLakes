@@ -149,7 +149,7 @@ for year in year_list:
         try: # State List Block
         
                 state.select_by_visible_text(current_state)
-                #time.sleep(5) venky 24Apr
+                time.sleep(5) #venky 24Apr
                 district=Select(driver.find_element_by_id('districtId')) 
                 dist_list = [o.text for o in district.options]                  
                 f = open(Confonet_Log, "a")              
@@ -188,6 +188,7 @@ for year in year_list:
                     print ('District loop started at '+now,file=f)
                     f.close()
                     try: #District List Block
+                            time.sleep(3) # venky 24Apr
                             district.select_by_visible_text(current_district)
                             for current_cat in cat_list:
                                 try:
@@ -198,7 +199,7 @@ for year in year_list:
                                     cat.select_by_visible_text(current_cat)
                                     #print('After selecting category in dropdown')
                                     #time.sleep(5)
-                                    #time.sleep(3) venky 24Apr
+                                    time.sleep(3) #venky 24Apr
 
                                     cat_opt=cat.first_selected_option
                                     if (cat_opt.text == "Select"):
@@ -209,66 +210,119 @@ for year in year_list:
                                         cat.select_by_visible_text(current_cat)
                                     
                                     driver.find_element_by_id("searchbutton").click()
-                                    time.sleep(3)#venky 24Apr
+                                    #time.sleep(3)#venky 24Apr
                                     #print("after clicking search")
 
-                                    search_count = 1
-                                    elem_id = "placeholder1"
+                                    #search_count = 1
+                                    #elem_id = "placeholder1" 
                                     try:
-                                          element = WebDriverWait(driver, 60).until(
-                                              EC.presence_of_element_located((By.ID, elem_id))
-                                          )
+                                         element = WebDriverWait(driver, 3).until(
+                                             EC.text_to_be_present_in_element((By.ID, "para1"), "No Record(s) found")
+                                         )
+                                         #print('Sorry...no records found for '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat)
 
                                     except:
-                                          print('Likely no records for this combo...placeholder1 not detected..')
-                                          search_count = 0
-                                          sys.exit()
+                                          try:
+                                              element = WebDriverWait(driver, 3).until(
+                                                 EC.text_to_be_present_in_element((By.ID, "para1"), "Search Results")
+                                              )
+                                                #print('Hurrah records found for '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat)
+                                              
+                                              try:
+                                                    
+                                                        #action_return = scrape_action(year, current_state, current_district, current_cat)
 
-                                    if ("No Record(s) found" in driver.page_source):
-                                          pass
-                              
-                                    else:
+                                                         line = [year, current_state,current_district,current_cat]
+                                                         
+                                                         with open(template_name,'a') as csv_file:
+                                                                 writer = csv.writer(csv_file, delimiter='|')
+                                                                 writer.writerow(line)
+                                                         f = open(Confonet_Log, "a")            
+                                                         print('Writing to Log successful',file=f)
+                                                         f.close()
+                                                         
+             
+                                              except StaleElementReferenceException:
+                                                    f = open(Confonet_Log, "a")
+                                                    print('Stale Element Exception after data write attempt',file=f)
+                                                    print('FAILEDCOMBO1 : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+            ##                                            print('Calling scrape action once again for the same combo',file=f)
+                                                    f.close()
 
-                                        try:
-                                            
-                                                #action_return = scrape_action(year, current_state, current_district, current_cat)
+                                              except NoSuchElementException:
+                                                    f = open(Confonet_Log, "a")                                
+                                                    print('No Such Element Exception after data write atttempt',file=f)
+                                                    print('FAILEDCOMBO1 : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+            ##                                            print('Calling scrape action once again for the same combo',file=f)
+                                                    f.close()
 
-                                                 line = [year, current_state,current_district,current_cat]
-                                                 
-                                                 with open(template_name,'a') as csv_file:
-                                                         writer = csv.writer(csv_file, delimiter='|')
-                                                         writer.writerow(line)
-                                                 f = open(Confonet_Log, "a")            
-                                                 print('Writing to Log successful',file=f)
-                                                 f.close()
-     
-                                        except StaleElementReferenceException:
-                                            f = open(Confonet_Log, "a")
-                                            print('Stale Element Exception after data write attempt',file=f)
-                                            print('FAILEDCOMBO1 : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
-##                                            print('Calling scrape action once again for the same combo',file=f)
-                                            f.close()
+                                              except UnexpectedAlertPresentException:
+                                                         f = open(Confonet_Log, "a")
+                                                         print('Seems session with Confonent website has ended, terminating the program',file=f)
+                                                         f.close()
+                                                         sys.exit()
+                                                     
+                                                
+                                              except:
+                                                   
+                                                    f = open(Confonet_Log, "a")
+                                                    print('General exception in the block...moving to the next loop',file=f)
+                                                    print('FAILEDCOMBO1 : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+            ##                                            print('Calling scrape action once again for the same combo',file=f)
+                                                    f.close()
 
-                                        except NoSuchElementException:
-                                            f = open(Confonet_Log, "a")                                
-                                            print('No Such Element Exception after data write atttempt',file=f)
-                                            print('FAILEDCOMBO1 : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
-##                                            print('Calling scrape action once again for the same combo',file=f)
-                                            f.close()
 
-                                        except UnexpectedAlertPresentException:
-                                                 f = open(Confonet_Log, "a")
-                                                 print('Seems session with Confonent website has ended, terminating the program',file=f)
-                                                 f.close()
-                                                 sys.exit()
-                                             
-                                        
-                                        except:
-                                            f = open(Confonet_Log, "a")
-                                            print('General exception in the block...moving to the next loop',file=f)
-                                            print('FAILEDCOMBO1 : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
-##                                            print('Calling scrape action once again for the same combo',file=f)
-                                            f.close()
+                                          except:
+                                              f = open(Confonet_Log, "a")
+                                              print('Sorry no records found (2nd) for '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+                                              f.close()
+
+##                                    if ("No Record(s) found" in driver.page_source):
+##                                          pass
+##                              
+##                                    else:
+##
+##                                        try:
+##                                            
+##                                                #action_return = scrape_action(year, current_state, current_district, current_cat)
+##
+##                                                 line = [year, current_state,current_district,current_cat]
+##                                                 
+##                                                 with open(template_name,'a') as csv_file:
+##                                                         writer = csv.writer(csv_file, delimiter='|')
+##                                                         writer.writerow(line)
+##                                                 f = open(Confonet_Log, "a")            
+##                                                 print('Writing to Log successful',file=f)
+##                                                 f.close()
+##                                                 
+##     
+##                                        except StaleElementReferenceException:
+##                                            f = open(Confonet_Log, "a")
+##                                            print('Stale Element Exception after data write attempt',file=f)
+##                                            print('FAILEDCOMBO1 : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+####                                            print('Calling scrape action once again for the same combo',file=f)
+##                                            f.close()
+##
+##                                        except NoSuchElementException:
+##                                            f = open(Confonet_Log, "a")                                
+##                                            print('No Such Element Exception after data write atttempt',file=f)
+##                                            print('FAILEDCOMBO1 : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+####                                            print('Calling scrape action once again for the same combo',file=f)
+##                                            f.close()
+##
+##                                        except UnexpectedAlertPresentException:
+##                                                 f = open(Confonet_Log, "a")
+##                                                 print('Seems session with Confonent website has ended, terminating the program',file=f)
+##                                                 f.close()
+##                                                 sys.exit()
+##                                             
+##                                        
+##                                        except:
+##                                            f = open(Confonet_Log, "a")
+##                                            print('General exception in the block...moving to the next loop',file=f)
+##                                            print('FAILEDCOMBO1 : '+str(year)+'-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+####                                            print('Calling scrape action once again for the same combo',file=f)
+##                                            f.close()
 
 
                                 except StaleElementReferenceException: #Category List Looping Block
