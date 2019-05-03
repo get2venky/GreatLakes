@@ -1,0 +1,412 @@
+setwd("D:/DS/Great Lakes/TimeSeries/Group Assignment")
+library(data.table)
+library(ggplot2)
+library(fpp2)
+library(forecast)
+library(stats)
+library(tseries)
+library(xts)
+
+# Part A)
+# 
+# Using the Winter-Holts methods and model the data and predict for the next 2 years. 
+# Your submission should contain the complete modelling steps with explanations. 
+# Include pictures and R-code where applicable.
+# 
+# Part B)
+# 
+# Using the ARIMA method model the data and predict for the next 2 years. 
+# Your submissions should contain the complete modelling steps with explanations. 
+# Include pictures and R-code where applicable.
+
+
+
+################################# Part I: To check the pattern of the Tractor sale series:#################################
+
+
+##Step 1- READ THE DATA FILE AND CONVERT DATA INTO TIME SERIES#
+
+Beersales <- read.csv("Beer.csv", header=TRUE)
+str(Beersales)
+summary(Beersales)
+plot(Beersales$OzBeer,type = "l")
+
+BeersalesTS <- ts(Beersales$OzBeer,start = c(2000,1),frequency = 4)
+BeersalesTS
+
+# For this exercise Q1: Jan-Mar, Q2: Apr-Jun, Q3: Jul-Sep, Q4: Oct-Dec
+
+plot(BeersalesTS, xlab="Years", ylab = "Beer Sales", main = "Beer Sales data")
+
+# I. Data values are stored in correct time order and no data is missing.
+# II. The sales are increasing in numbers, implying presence of trend component.
+# III. Intra-year stable fluctuations are indicative of seasonal component. As trend increases, 
+# fluctuations are also increasing. This is indicative of multiplicative seasonality.
+
+##Step 2- Existence of seasonality is observed using various plots 
+## Plot 1: Seasonal plot Year-wise (using ggseasonalplot()) 
+
+par(mfrow=c(1,1))
+ggseasonplot(BeersalesTS, year.labels=TRUE, year.labels.left=TRUE) + ylab("degree") + ggtitle("Seasonal plot: Beer Sales Data")
+
+## Plot 2: Polar Seasonal plot Year-wise (using ggseasonplot()) 
+ggseasonplot(BeersalesTS, polar=TRUE) + ylab("degree") + ggtitle("Polar seasonal plot: Beer Sales Data")
+
+#Above two plots show that beer sales is increasing every year. Also, it is evident that the seasonal fluctuation is 
+# increasing with the trend, which means a multiplicative seasonality. 
+
+## Plot 3: Seasonal plot Month-wise (using monthplot()) 
+monthplot(BeersalesTS)
+#Average sales lowest in Q2 and highest in Q4. 
+
+
+########################### Part 2: To Identify the components of the given Beer sales data:###########################
+
+
+## Step 1a: Decomposition of TS using decompose()
+
+BeerTSDecomp<-decompose(BeersalesTS, type = "multiplicative") 
+plot(BeerTSDecomp)
+
+#Figure indicates that trend is increasing linearly
+
+## Observing the seasonal indices of "BeerTSDecomp"
+
+Seasonal_Ind=round(t(BeerTSDecomp$figure),2)
+colnames(Seasonal_Ind)<-c('Q1','Q2','Q3','Q4')
+Seasonal_Ind
+# Since this is quarterly data, there are 4 seasonal indices. Sum of the quarterly indices is 4
+# In Q4 (Oct-Dec), beer sales is the higest as shown by the highest value of the seasonal component
+# In Q2 (Apr-Jun), beer sales is the lowest
+
+## Step 1b: Decomposition of TS using stl()
+
+BeerTSDecompLog <- stl(log10(BeersalesTS), s.window='p')
+plot(BeerTSDecompLog)
+# The small bars represent the magnitude of the particular component in the given series. 
+# Smaller the bar; greater the significance of the component.
+# https://stats.stackexchange.com/questions/7876/interpreting-range-bars-in-rs-plot-stl
+
+
+########################### Part 3: To Propose best model for the Beer sales data########################### 
+
+## Step 1:Spliting data into training and test data sets to ascertain model accuracy
+
+# We will use 2000-2014 data for training and 2015-2017 for testing
+
+Beer_Train <- window(BeersalesTS, start=c(2000,1), end=c(2014, 4), freq=4)
+Beer_Test <- window(BeersalesTS, start=c(2015,1), freq=4)
+
+autoplot(Beer_Train, series="Train") +
+  autolayer(Beer_Test, series="Test") +
+  ggtitle("Beer Sales Traning and Test data") +
+  xlab("Year") +
+  ylab("Sales") +
+  guides(colour=guide_legend(title="Forecast"))
+
+#-----------------------------PART A) Holt Winter method------------------------------#
+
+Beer_Train_HW <- hw(Beer_Train,seasonal="multiplicative",h=12)
+plot(Beer_Train_HW)
+Beer_Train_HW$model
+
+# Holt-Winters' multiplicative method
+# 
+# Call:
+# hw(y = Beer_Train, seasonal = "multiplicative")
+# 
+# Smoothing parameters:
+# alpha = 0.0666
+# beta  = 0.0562
+# gamma = 1e-04 (0.01831564)
+# 
+# Initial states:
+# l = 255.1222
+# b = 0.9751
+# s = 1.1747 0.9245 0.8729 1.0279
+# 
+# sigma:  0.0335
+# 
+# AIC     AICc      BIC
+# 533.5676 537.1676 552.4167
+
+
+## Step 5: Forecast data for next 12 quarters using HW method 
+plot(forecast(Beer_Train_HW, h=12))
+
+
+###Accuracy value using Winter-Holt method
+
+Vec<- cbind(Beer_Test,as.data.frame(forecast(Beer_Train_HW, h=12))[,1])
+
+ts.plot(Vec, col=c("blue", "red"), main="Beer Sales: Actual vs Forecast")
+
+RMSE <- round(sqrt(sum(((Vec[,1]-Vec[,2])^2)/length(Vec[,1]))),4) 
+MAPE <- round(mean(abs(Vec[,1]-Vec[,2])/Vec[,1]),4)
+
+paste("Accuracy Measures: RMSE:", RMSE, "and MAPE:", MAPE)
+
+#"Accuracy Measures: RMSE: 9.001 and MAPE: 0.0186"
+
+#Mean Mean Absolute Percentage error (MAPE) of 0.0186 (or 1.86%) 
+#signifies that the Winter-Holt's method is providing a high level
+# of fit to this time series data based on the test/train split
+# that we have chosen
+
+#However, our problem statement is to predict for 2 years beyond the years in the 
+#dataset, i.e. predict for 2018 and 2019 based on the scale that we have used.
+#So we will use the entire dataset for training the mode on Winter-Holt's and
+#then predict for the next 2 years. So we HW on the unsplit TS i.e BeersalesTS
+
+Beer_Complete_HW <- hw(BeersalesTS,seasonal="multiplicative",h=8) # 8 quarters or 2 years
+plot(Beer_Complete_HW)
+Beer_Complete_HW$model
+
+# Holt-Winters' multiplicative method 
+# 
+# Call:
+#  hw(y = BeersalesTS, h = 8, seasonal = "multiplicative") 
+# 
+#   Smoothing parameters:
+#     alpha = 0.0907 
+#     beta  = 0.0471 
+#     gamma = 1e-04 
+# 
+#   Initial states:
+#     l = 254.9897 
+#     b = 1.2106 
+#     s = 1.1722 0.9257 0.8767 1.0254
+# 
+#   sigma:  0.032
+# 
+#      AIC     AICc      BIC 
+# 653.1654 656.0686 673.6554 
+
+# Beer_Complete_HW
+ 
+# Point Forecast    Lo 80    Hi 80    Lo 95    Hi 95
+# 2018 Q1       467.6996 448.4909 486.9082 438.3224 497.0767
+# 2018 Q2       404.0581 387.3095 420.8067 378.4434 429.6729
+# 2018 Q3       431.0853 412.9308 449.2397 403.3205 458.8501
+# 2018 Q4       551.5345 527.7551 575.3140 515.1670 587.9020
+# 2019 Q1       487.3821 465.6944 509.0698 454.2136 520.5506
+# 2019 Q2       420.8854 401.4047 440.3660 391.0922 450.6785
+# 2019 Q3       448.8531 427.0911 470.6150 415.5711 482.1351
+# 2019 Q4       574.0350 544.7093 603.3607 529.1852 618.8848
+
+#Alternate values for alpha beta gamma
+
+Beer_Complete_HW <- hw(BeersalesTS,seasonal="multiplicative",alpha=0.2,beta=0.1,gamma=0.1,h=8) # 8 quarters or 2 years
+plot(Beer_Complete_HW)
+Beer_Complete_HW$model
+
+
+
+
+
+#-----------------------------PART B) ARIMA method------------------------------#
+
+##-------Dicket Fuller test ---------##
+
+adf.test(Beer_Train,k=6)
+
+# Augmented Dickey-Fuller Test
+# 
+# data:  Beer_Train
+# Dickey-Fuller = -1.6506, Lag order = 24, p-value = 0.716
+# alternative hypothesis: stationary
+# 
+# > adf.test(Beer_Train,k=8)
+# 
+# Augmented Dickey-Fuller Test
+# 
+# data:  Beer_Train
+# Dickey-Fuller = -2.0892, Lag order = 8, p-value = 0.5387
+# alternative hypothesis: stationary
+# 
+# > adf.test(Beer_Train,k=4)
+# 
+# Augmented Dickey-Fuller Test
+# 
+# data:  Beer_Train
+# Dickey-Fuller = -1.0542, Lag order = 4, p-value = 0.9221
+# alternative hypothesis: stationary
+
+adf.test(log10(Beer_Train),k=8)
+
+# Augmented Dickey-Fuller Test
+# data:  log10(Beer_Train)
+# Dickey-Fuller = -2.6657, Lag order = 8, p-value = 0.3057
+# alternative hypothesis: stationary
+
+#Beer sales data seems to be non stationary even after converting to log scale
+
+Beer_Train_Log = log10(Beer_Train)
+
+par(mfrow = c(1,2)) 
+acf(ts(Beer_Train_Log),main="ACF Beer Sales") # Plot
+pacf(ts(Beer_Train_Log),main="PACF Beer Sales") # Plot
+
+#Run auto arima
+BS_AutoArima <- auto.arima(Beer_Train_Log)
+BS_AutoArima
+
+# Series: Beer_Train_Log 
+# ARIMA(0,1,2)(0,1,1)[4] 
+# 
+# Coefficients:
+#   ma1     ma2     sma1
+# -1.0670  0.3126  -0.6935
+# s.e.   0.1303  0.1243   0.1375
+# 
+# sigma^2 estimated as 0.0002249:  log likelihood=152.57
+# AIC=-297.15   AICc=-296.35   BIC=-289.12
+
+# According to the result, ARIMA(0,1,2)(0,1,1) is the indicated model for 
+# Beer sales with AIC = -297.15 and BIC = -289.12
+
+
+#Alternately using ACF and PCF for the differenced series
+par(mfrow = c(1,1)) 
+Beer_Train_Log %>% diff() %>% ggtsdisplay() # Plot
+#Plot of first difference series, ACF and PACF of Log(Beer Sales)
+
+adf.test(diff(Beer_Train_Log))
+
+# Augmented Dickey-Fuller Test
+# 
+# data:  diff(Beer_Train_Log)
+# Dickey-Fuller = -9.6513, Lag order = 3, p-value = 0.01
+# alternative hypothesis: stationary
+# 
+# Warning message:
+#   In adf.test(diff(Beer_Train_Log)) : p-value smaller than printed p-value
+
+#CHECK The plots of ACF and PACF indicate possible values for p to be 1 and q to be 0.
+
+BS_Auto <- auto.arima(Beer_Train_Log)
+
+# Series: diff(Beer_Train_Log) 
+# ARIMA(0,0,2)(0,1,1)[4] with drift 
+# 
+# Coefficients:
+#   ma1     ma2     sma1  drift
+# -1.1241  0.2953  -0.7837  1e-04
+# s.e.   0.1303  0.1301   0.1454  1e-04
+# 
+# sigma^2 estimated as 0.0002069:  log likelihood=154.4
+# AIC=-298.79   AICc=-297.57   BIC=-288.76
+
+BS_Arima1 <- Arima((Beer_Train_Log),order = c(0,1,2),seasonal = c(0,1,1),method = "ML")
+
+Beer_Train_Log %>% diff(lag=4) %>% diff()%>% ggtsdisplay()
+#Plot of first difference and seasonal first difference series, 
+#ACF and PACF of Log(Beer Sales)
+#CHECK Both ACF and PACF plots indicate possible value of P to be 1 and Q to be 1.
+
+BS_Arima2 <- Arima((Beer_Train_Log),order = c(0,1,1),seasonal = c(0,1,1),method = "ML")
+BS_Arima2
+Box.test(BS_Arima2$residuals, lag=4, type="Ljung-Box")
+
+# Series: diff(Beer_Train_Log) 
+# ARIMA(0,1,1)(1,1,1)[4] 
+# 
+# Coefficients:
+#   ma1    sar1     sma1
+# -1.000  0.1071  -0.8283
+# s.e.   0.072  0.1733   0.1392
+# 
+# sigma^2 estimated as 0.0004504:  log likelihood=127.81
+# AIC=-247.62   AICc=-246.8   BIC=-239.66
+
+# We get marginally lower values of AIC and BIC with this
+
+#Box-Ljung test
+# This checks whether the residuals of time series data are stationary or not.
+# H0: Residuals are stationary
+# H1: Residuals are not stationary
+
+# Lag = 4
+
+Box.test(BS_Auto$residuals, lag=4, type="Ljung-Box")
+
+# Box-Ljung test
+# data:  BS_Auto$residuals
+# X-squared = 0.80339, df = 4, p-value = 0.938
+
+Box.test(BS_Arima1$residuals, lag=4, type="Ljung-Box")
+
+# Box-Ljung test
+# data:  BS_Arima1$residuals
+# X-squared = 18.411, df = 4, p-value = 0.001026
+
+Box.test(BS_Arima2$residuals, lag=4, type="Ljung-Box")
+
+# Box-Ljung test
+# data:  BS_Arima2$residuals
+# X-squared = 3.4926, df = 4, p-value = 0.479
+
+# Compare the 2 above...we retain the null hypothesis based on p values for different lags
+# hence residuals of the series is stationary for BS_Arima2
+
+#Run auto arima to forecast Beer Sales with BS_Arima2
+BeerSalesForecast <- forecast(BS_Arima1,h=12)
+plot(BeerSalesForecast, shadecols = "oldstyle")
+
+#Accuracy measures: RMSE and MAPE using BS_ARIMA2 for (0,1,1)*(0,1,1)[4]
+Beer_Test_Log = log10(Beer_Test)
+
+Vec1<- 10^(cbind(Beer_Test_Log ,as.data.frame(BeerSalesForecast)[,1])) 
+ts.plot(Vec1, col=c("blue", "red"), main="Beer sales: Actual vs Forecast")
+
+RMSE1 <- round(sqrt(sum(((Vec1[,1]-Vec1[,2])^2)/length(Vec1[,1]))),4) 
+MAPE1 <- round(mean(abs(Vec1[,1]-Vec1[,2])/Vec1[,1]),4) 
+paste("Accuracy Measures: RMSE:", RMSE1, "and MAPE:", MAPE1) 
+
+# Build ARIMA model (using parameters in BS_Arima2) on the full dataset (i.e. till 2017) and forecast for 
+# the next 2 years 
+
+BS_Arima2full <- Arima(log10(BeersalesTS),order = c(0,1,2),seasonal = c(0,1,1),method = "ML")
+BeerSalesForecast <- forecast(BS_Arima2full,h=12)
+plot(BeerSalesForecast, shadecols = "oldstyle")
+
+
+BSF <- BeerSalesForecast 
+
+BSF$mean <- 10^BSF$mean
+BSF$upper <- 10^BSF$upper
+BSF$lower <- 10^BSF$lower
+BSF$x <- 10^BSF$x
+
+BSF
+plot(BSF, shadecols = "oldstyle")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
