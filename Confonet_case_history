@@ -1,0 +1,204 @@
+#! python3
+# Confonet2.py - To scrape data from confonet site
+
+
+import sys
+import selenium
+import time
+import datetime
+from datetime import timedelta
+import os
+
+from selenium import webdriver
+from selenium.webdriver.support.ui import Select
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common import exceptions
+from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import StaleElementReferenceException
+from selenium.common.exceptions import UnexpectedAlertPresentException
+#import openpyxl
+#from openpyxl import Workbook
+#from openpyxl.styles import Font
+import pandas as pd
+import csv
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~SETUP / README~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+
+#1) Ensure there is a csv file "Data_for_Case_History.csv" present in the
+#   same directory as this program file. The csv should contain case data
+#   scraped earlier but only the below 5 columns are reqd:
+#       CaseNo  Year  State   District  Sector
+#   THE COLUMN NAMES SHOULD BE EXACTLY AS ABOVE
+#2) Please modify the year_list below appropriately. Set to 2013 by default
+#3) PLEASE RUN THE PROGRAM FOR ONE YEAR AT A TIME
+#4) Please note the output file is unicode enabled (to take care of
+#   non-english judgements. So there will be extra "b" characters which
+#   can be stripped off post data collection
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~SETUP / README~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+
+try:
+        df_cases = pd.read_csv('Data_for_Case_History.csv')
+        driver = webdriver.Chrome(executable_path='chromedriver')
+        driver.get('http://cms.nic.in/ncdrcusersWeb/courtroommodule.do?method=loadCaseHistory')
+        driver.implicitly_wait(5) # seconds
+
+        year_list = ['2013']
+
+        for year in year_list:
+                now = datetime.datetime.now()
+                now = now.strftime('%d%b%y-%H%M%S')
+                Confonet_Log = 'LOG_RND2_'+str(year)+'_'+now
+
+                f = open(Confonet_Log, "a")
+                print("---------------------------------CONFONET CASE HISTORY MESSAGE LOG----------------------------------", file=f)
+                print('New Year Loop with Year '+year,file=f)
+                f.close()
+
+                f = open(Confonet_Log, "a")
+                print("Case History Program Execution Started At "+now,file=f)
+                f.close()
+
+                title_row = [['DateofHearing','CaseProceeding','DateofNextHearing','Year','State','District','Sector','Case'],[]]
+
+                template_name = 'DATA_RND2_'+str(year)+'_'+now
+                with open(template_name, "w") as csv_file:
+                        writer = csv.writer(csv_file, delimiter='|')
+                        for line in title_row:
+                                writer.writerow(line)
+
+                
+                df_cases_year = df_cases[df_cases.Year==int(year)] #surveys_df[surveys_df.year == 2002]
+                f = open(Confonet_Log, "a")
+                print('THE TOTAL COMBO LIST IS : ', file=f)
+                print(df_cases_year, file=f)
+                f.close()
+                
+
+                for index, row in df_cases_year.iterrows():
+                        try:    
+                                driver.get('http://cms.nic.in/ncdrcusersWeb/courtroommodule.do?method=loadCaseHistory')
+                                driver.implicitly_wait(10)
+                                f = open(Confonet_Log, "a")
+                                print('~~~~~~~~~~~~~~New combo~~~~~~~~~~~',file=f) 
+                                print (row["CaseNo"], row["Year"],row["State"],row["District"],file=f)
+                                f.close()
+                                current_state = row["State"]
+                                current_district = row["District"]
+                                current_caseno = row["CaseNo"]
+                                current_sector = row["Sector"]
+                                time.sleep(2)
+                        
+                                try:
+                                        state=Select(driver.find_element_by_id('stateid'))
+                                        time.sleep(2)
+                                        district=Select(driver.find_element_by_id('distid'))
+                                        case_num = current_caseno #"CCN 139/2014"#"RP/685/2013"#"MA/98/2013" #"OP/4/2004"
+
+                        ##                current_state = "Uttar Pradesh"
+                        ##                current_district = "Agra-I"
+
+                                        state.select_by_visible_text(current_state)
+                                        time.sleep(2)
+                                        if current_district=="StateCommission":
+                                                current_district = "State Commission"
+                                        
+                                        district.select_by_visible_text(current_district)
+
+                ##                        cat_opt=cat.first_selected_option
+                ##                        if (cat_opt.text == "Select"):
+                                        
+
+                                except Exception as e:
+                                        
+                                        f = open(Confonet_Log, "a")
+                                        print('General exception in stateid and distid block...',file=f)
+                                        print('The system exception is '+ str(e),file=f)
+                                        print('FAILEDCOMBO1 : '+str(year)+'-'+current_state+'-'+current_district,file=f)
+                                        print('Refreshing the page and running code for the same combo',file=f)
+                                        f.close()
+                                        driver.refresh()
+                                        driver.implicitly_wait(5)
+                                        try:
+                                              time.sleep(2)
+                                              state=Select(driver.find_element_by_id('stateid'))
+                                              time.sleep(2)
+                                              district=Select(driver.find_element_by_id('distid'))
+                                              case_num = current_caseno #"CCN 139/2014"#"RP/685/2013"#"MA/98/2013" #"OP/4/2004"
+                                              state.select_by_visible_text(current_state)
+                                              district.select_by_visible_text(current_district)
+                                              
+                                        except:
+                                                f = open(Confonet_Log, "a")
+                                                print('FAILEDCOMBO2 for the same combo, skipping this...calling continue',file=f)
+                                                f.close()
+                                                continue
+
+                                f = open(Confonet_Log, "a")
+                                print('Combo successfully applied to filters. Proceeding with searching and scraping',file=f)
+                                f.close()
+
+                                elem_case = driver.find_element_by_id("sometext")
+                                elem_case.clear()
+                                elem_case.send_keys(case_num)
+                                f = open(Confonet_Log, "a")
+                                print('Before clicking Continue',file=f)
+                                f.close()
+
+                                elem_continue = driver.find_element_by_id("continue_button")
+                                elem_continue.click()
+                                f = open(Confonet_Log, "a")
+                                print('After clicking continue',file=f)
+                                f.close()
+                                
+
+                                elem_link = driver.find_element_by_link_text("Hearing Information")
+                                elem_link.click()
+
+                                tables = driver.find_elements_by_id("respinf")
+                                tcount = 0
+                                for table in tables:
+                                        if(tcount>0):
+                                                #print('-------------------New Table-------------------')
+                                                rows = table.find_elements_by_tag_name("tr")
+                                                rcount=0
+                                                conf_list = []
+                                                for row in rows:
+                                                        if(rcount>0):
+                                                        
+                                                                #print('-------------------New Row------------------')
+                                                                line = []
+                                                                cols = row.find_elements_by_tag_name("td")
+                                                                for col in cols:
+                                                                        #print('-------------------New Col------------------')
+                                                                        #print(col.text)
+                                                                        line.append(col.text[:200].encode("utf-8"))
+                                                                line.append(year)
+                                                                line.append(current_state)
+                                                                line.append(current_district)
+                                                                line.append(current_sector)
+                                                                line.append(current_caseno)
+                                                                conf_list.append(line)
+                                                                
+                                                        rcount = rcount+1
+                                                
+                                                with open(template_name,'a') as csv_file:
+                                                        writer = csv.writer(csv_file, delimiter='|')
+                                                        for line in conf_list:
+                                                                writer.writerow(line)
+                                        tcount=tcount+1
+
+                        except Exception as e:        
+                                f = open(Confonet_Log, "a")
+                                print('General exception in ITERROWS block for the current combo of year,state,district,case...',file=f)
+                                print('The system exception is '+ str(e),file=f)
+                                print('Moving on to the next ITERROWS combo',file=f)
+except Exception as e:
+        print('An unforeseen error has occured, aborting the program')
+        print('The system exception is '+ str(e),file=f)
+        sys.exit()
+        
+        
