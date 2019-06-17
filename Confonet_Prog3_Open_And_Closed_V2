@@ -1,0 +1,537 @@
+#! python3
+# Confonet2.py - To scrape data from confonet site
+
+
+import sys
+import selenium
+import time
+import datetime
+from datetime import timedelta
+import os
+
+from selenium import webdriver
+from selenium.webdriver.support.ui import Select
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common import exceptions
+from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import StaleElementReferenceException
+#import openpyxl
+#from openpyxl import Workbook
+#from openpyxl.styles import Font
+#import pandas as pd
+import csv
+
+
+def scrape_action(year, current_state, current_district, current_cat):
+
+    f = open(Confonet_Log, "a")
+    print('Records exist for this combo of'+ '-'+current_state+'-'+current_district+'-'+current_cat,file=f)
+    f.close()
+
+    table = driver.find_element_by_xpath('/html/body/form/table/tbody')
+    conf_list = []
+    line = []
+    i=0
+    for row in table.find_elements_by_xpath("/html/body/form/table/tbody/tr"):
+        #print('--------------------------------------New Row--------------------------------------------')
+        #print(row.text)
+        i= i+1
+        #print('The row no is '+ str(i))
+                
+        #line = []
+        if i==1:
+            #print('skipping this loop as it is the header')
+            pass
+        else:
+            line = []
+            
+            col_count = 1
+            outer_html = 'No Link Found'
+
+            for col in row.find_elements_by_xpath('./td'):
+                try:
+                    #print('col_count is............'+str(col_count))
+                    col_count = col_count+1
+                    line.append(col.text.encode("utf-8"))
+                    #print(col.text)
+         
+                except:
+                    print('Issue while scraping for this cell')
+                          
+                #line.append(col.text.encode("utf-8"))
+            
+            line.append(year)
+            line.append(current_state)
+            line.append(current_district)
+            line.append(current_cat)
+            #line.append(outer_html)
+            #print('The line is :')
+            #print(line)
+            conf_list.append(line)
+            #print('Row Done')
+
+            if (i%10)==0:
+                    with open(Confonet_data,'a') as csv_file:
+                            writer = csv.writer(csv_file, delimiter='|')
+                            for line in conf_list:
+                                    writer.writerow(line)
+                    conf_list = []
+                    f = open(Confonet_Log, "a")            
+                    print('Done for Rowset till '+str(i),file=f)
+                    f.close()
+                    
+    with open(Confonet_data,'a') as csv_file:
+            writer = csv.writer(csv_file, delimiter='|')
+            for line in conf_list:
+                    writer.writerow(line)
+                              
+##END OF scrape_action
+                    
+
+def set_daterange(year):
+        startd="01/01/"
+        endd="31/12/"
+        sdate=driver.find_element_by_id("dtFrom")
+        edate=driver.find_element_by_id("dtTo")                       
+        sdate.clear()
+        sdate.send_keys(startd+str(year))
+        driver.implicitly_wait(5) 
+        edate.clear()
+        edate.send_keys(endd+str(year))
+        driver.implicitly_wait(5)
+
+def set_catoption(sector):
+        optionlist = Select(driver.find_element_by_name('condition'))
+        time.sleep(2)
+        optionlist.select_by_visible_text('Category')
+        time.sleep(2)
+        cat=Select(driver.find_element_by_name('catId'))
+        cat.select_by_visible_text(sector)
+##        f = open(Confonet_Log, "a")
+##        print('Category Reset Done',file=f)
+##        f.close()
+
+def set_statecommission(current_state):
+        state=Select(driver.find_element_by_name('state_id'))
+        time.sleep(1)
+        state.select_by_visible_text(current_state)
+##        f = open(Confonet_Log, "a")
+##        print('State Commission reset done',file=f)
+##        f.close()
+        
+def set_diststate(current_state,current_district):
+        stateD=Select(driver.find_element_by_name('state_idD'))
+        time.sleep(1)
+        stateD.select_by_visible_text(current_state)
+
+        time.sleep(2)
+
+        dist = Select(driver.find_element_by_name('dist_id'))
+        dist.select_by_visible_text(current_district)
+
+        #f = open(Confonet_Log, "a")
+        #print('District and State reset done',file=f)
+        #f.close()
+
+
+
+############----------------##########################SET UP SECTION####################-------------########################
+
+#---------------------EACH MEMBER TO CUSTOMIZE THE BELOW LINES AND CHANGE PARAMETERS AS REQUIRED----------------------------#
+
+# 1) year  logic - tailor the below list as per the years assigned to you.
+
+use_year = 'Y'
+year_list = [2008]
+
+start_date = 'ALL' # not yet functional
+end_date = 'ALL' # not yet functional
+
+
+# 2) NCDRC records parameters
+ncdrc_flag = "N"
+
+# 3) State Commission records parameters
+state_commission_flag = "N"
+start_from_state_commission = "ALL"
+
+# 4) District records parameters
+district_flag = "Y"
+start_from_state = "ALL"
+start_from_district = "ALL"
+
+# 5) Sector start parameter
+start_from_sector = "Unfair Trade" # Replace with specific sector like Banking. Please give the name exactly as in site dropdown 
+
+# 6) No of rows to be written to the output file in one go
+rowset_size = 10 # not yet functional
+
+
+############-----------------##########################SETUP SECTION###################--------------##########################
+
+
+
+
+
+try:
+        driver = webdriver.Chrome(executable_path='chromedriver')
+        driver.get('http://cms.nic.in/ncdrcusersWeb/login.do?method=caseStatus')
+        
+        for year in year_list:
+                
+            set_daterange(year) # call function to set the date range filters        
+
+            now = datetime.datetime.now()
+            now = now.strftime('%d%b%y-%H%M%S')
+            Confonet_Log = 'LOG_OPEN_'+str(year)+'_'+now  #Create the error log before opening the loop
+           
+            f = open(Confonet_Log, "a")
+            print("---------------------------------CONFONET MESSAGE LOG----------------------------------", file=f)
+            f.close()
+
+            f = open(Confonet_Log, "a")
+            print("Program Execution Started At "+now,file=f)
+            f.close()
+
+
+            title_row = [['SNo','CaseNo','Complainant','Respondent','CompAdvocate','RespAdvocate','DOfFiling','DONxtHearing','Year','State','District','Sector'],[]]
+
+            Confonet_data = 'DATA_OPEN_'+str(year)+'_'+now
+            
+            with open(Confonet_data, "w") as csv_file:
+                    writer = csv.writer(csv_file, delimiter='|')
+                    for line in title_row:
+                        writer.writerow(line)
+
+            #print("~~~~~~~~~~~~~~~~~~~~~Choosing Category...")
+            optionlist = Select(driver.find_element_by_name('condition'))
+            time.sleep(2)
+            optionlist.select_by_visible_text('Category')
+            time.sleep(2)
+            cat=Select(driver.find_element_by_name('catId'))
+            cat_list = [o.text for o in cat.options]
+            cat_list = cat_list[1:] # remove 'select' from the list
+            cat_full = cat_list
+
+            if start_from_sector != 'ALL':
+                    pos = cat_list.index(start_from_sector)
+                    cat_list = cat_list[pos:]
+                    f = open(Confonet_Log, "a")
+                    print('Sector list updated based on start_from_sector parameter, the truncated list is: ',file=f)
+                    print(cat_list, file=f)
+                    f.close()
+            else:               
+                    f = open(Confonet_Log, "a")
+                    print('Complete sector list being considered as below (start_from_sector set to ALL) : ',file=f)
+                    print(cat_list, file=f)
+                    f.close()
+
+                    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~NCDRC BLOCK~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+
+            if (ncdrc_flag=='Y'):
+
+                    f = open(Confonet_Log, "a")
+                    print('~~~~~~~~~~~~~~~STARTING PROCESSING FOR NCDRC RECORDS~~~~~~~~~~~~~~~',file=f)
+                    f.close()
+                 
+                    #print("~~~~~~~~~~~~~~~~~~~~~Choosing NCDRC Radio Button...")
+                    leveltype = driver.find_elements_by_id("UserType")[0] # SUBSCRIPT 0 FOR NCDRC RADIO BUTTON
+                    leveltype.click()
+
+                   
+                    for current_cat in cat_list:
+                            try:
+                                    f = open(Confonet_Log, "a")
+                                    print('The new category is:'+current_cat,file=f)
+                                    f.close()
+
+                                    driver.get('http://cms.nic.in/ncdrcusersWeb/login.do?method=caseStatus')
+                                    leveltype = driver.find_elements_by_id("UserType")[0] # SUBSCRIPT 0 FOR NCDRC RADIO BUTTON
+                                    leveltype.click()
+                                    f = open(Confonet_Log, "a")
+                                    print('User Type Set to NCDRC',file=f)
+                                    f.close()
+                                    set_daterange(year)
+                                    set_catoption(current_cat)
+##                                    f = open(Confonet_Log, "a")
+##                                    print('Daterange and Catoption set',file=f)
+##                                    f.close()
+                                    
+                                    searchbutton = driver.find_element_by_name('advs')
+                                    searchbutton.click()
+                                    time.sleep(3)
+                                    if ("No record is available" in driver.page_source):
+                                            f = open(Confonet_Log, "a")
+                                            print('No records for this sector under NCDRC for this date range, moving on to the next sector',file=f)
+                                            driver.get('http://cms.nic.in/ncdrcusersWeb/login.do?method=caseStatus')
+                                            leveltype = driver.find_elements_by_id("UserType")[0] # SUBSCRIPT 0 FOR NCDRC RADIO BUTTON
+                                            leveltype.click()
+                                            set_daterange(year)
+                                            set_catoption(current_cat)
+                                    else:
+                                            scrape_action(year, 'NCDRC', 'NCDRC', current_cat)
+                                            
+                            except Exception as e:
+                                    f = open(Confonet_Log, "a")
+                                    print('EXCEPTION in NCDRC CATEGORY  block...',file=f)
+                                    print('The system exception is '+ str(e),file=f)
+                                    f.close()
+
+         
+                    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~END NCDRC BLOCK~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+
+                                    
+
+                    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~STATE COMMISSION BLOCK~~~~~~~~~~~~~~~~~~~~~~~~~~~# 
+
+
+            if state_commission_flag == 'Y':
+
+                    f = open(Confonet_Log, "a")
+                    print('~~~~~~~~~~~~~~~STARTING PROCESSING FOR STATE COMMISSION RECORDS~~~~~~~~~~~~~~~',file=f)
+                    f.close()
+
+                    try:
+
+                            leveltype = driver.find_elements_by_id("UserType")[1] # SUBSCRIPT 1 FOR STATE RADIO BUTTON
+                            leveltype.click()
+                            time.sleep(2)
+                            state=Select(driver.find_element_by_name('state_id'))
+                            state_list = [o.text for o in state.options]
+                            state_list = state_list[1:]
+                            
+                            if start_from_state_commission != "ALL":
+                                    pos = state_list.index(start_from_state_commission)
+                                    state_list = state_list[pos:]
+
+                                    f = open(Confonet_Log, "a")
+                                    print('State Commission list updated based on start_from_state parameter, the truncated list is: ',file=f)
+                                    print(state_list, file=f)
+                                    f.close()
+                            else:
+                                    f = open(Confonet_Log, "a")
+                                    print('Full state commission list being considered: ',file=f)
+                                    print(state_list, file=f)
+                                    f.close()                            
+                            
+                    except Exception as e:
+                            
+                            f = open(Confonet_Log, "a")
+                            print('EXCEPTION in State Commission List updates...',file=f)
+                            print('The system exception is '+ str(e),file=f)
+                            f.close()
+
+                            
+                    
+                    for current_state in state_list:
+                            try:
+                                               
+                                    f = open(Confonet_Log, "a")
+                                    print('The new state commission is:'+current_state,file=f)
+                                    f.close()
+                                    
+                                    for current_cat in cat_list:              
+                                            try:
+                                                    f = open(Confonet_Log, "a")
+                                                    print('The new category is:'+current_cat,file=f)
+                                                    f.close()
+
+                                                    driver.get('http://cms.nic.in/ncdrcusersWeb/login.do?method=caseStatus')
+                                                    leveltype = driver.find_elements_by_id("UserType")[1] # SUBSCRIPT 1 FOR STATE COMMISSION
+                                                    leveltype.click()
+                                                    f = open(Confonet_Log, "a")
+                                                    print('User Type Set to STATE COMMISSION',file=f)
+                                                    f.close()
+                                                    set_daterange(year)
+                                                    set_statecommission(current_state)
+                                                    set_catoption(current_cat)
+##                                                    f = open(Confonet_Log, "a")
+##                                                    print('Daterange, State Commission and Catoption set',file=f)
+##                                                    f.close()
+                                                    
+                                                    searchbutton = driver.find_element_by_name('advs')
+                                                    searchbutton.click()
+                                                    time.sleep(3)
+                                                    if ("No record is available" in driver.page_source):
+                                                            f = open(Confonet_Log, "a")
+                                                            print('No records for this sector under this State Commission for this date range and sector, moving on to the next sector',file=f)
+##                                                            driver.get('http://cms.nic.in/ncdrcusersWeb/login.do?method=caseStatus')
+##                                                            leveltype = driver.find_elements_by_id("UserType")[0] # SUBSCRIPT 0 FOR NCDRC RADIO BUTTON
+##                                                            leveltype.click()
+##                                                            set_daterange(year)
+##                                                            set_catoption(current_cat)
+                                                    else:
+                                                            scrape_action(year, current_state, 'State Commission', current_cat)                    
+                                            except Exception as e:
+                                                    f = open(Confonet_Log, "a")
+                                                    print('EXCEPTION in STATE COMMISSION CATEGORY  block...',file=f)
+                                                    print('The system exception is '+ str(e),file=f)
+                                                    f.close()
+                            except Exception as e:
+                                    f = open(Confonet_Log, "a")
+                                    print('EXCEPTION in STATE COMMISSION block...',file=f)
+                                    print('The system exception is '+ str(e),file=f)
+                                    f.close()
+
+                    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~END STATE COMMISSION BLOCK~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+                            
+                    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~DISTRICT BLOCK~~~~~~~~~~~~~~~~~~~~~~~~~~~#                     
+       
+             #############################TEMP TO BE REMOVED################################
+
+            if district_flag == 'Y':
+
+                    f = open(Confonet_Log, "a")
+                    print('~~~~~~~~~~~~~~~STARTING PROCESSING FOR DISTRICT RECORDS~~~~~~~~~~~~~~~',file=f)
+                    f.close()
+                    try:
+                            leveltype = driver.find_elements_by_id("UserType")[2] # SUBSCRIPT 2 FOR DISTRICT RADIO BUTTON
+                            leveltype.click()
+                            time.sleep(2)
+                            stateD=Select(driver.find_element_by_name('state_idD'))
+                            stateD_list = [o.text for o in stateD.options]
+                            stateD_list = stateD_list[1:]
+
+##                            dist = Select(driver.find_element_by_name('dist_id'))
+##                            dist_list = [o.text for o in dist.options]
+##                            dist_list = dist_list[1:] # Remove 'Select' from the list
+
+
+                            if start_from_state!= "ALL":
+                                    pos = stateD_list.index(start_from_state)
+                                    stateD_list = stateD_list[pos:]
+
+                                    f = open(Confonet_Log, "a")
+                                    print('State list updated based on start_from_state parameter, the truncated list is: ',file=f)
+                                    print(stateD_list, file=f)
+                                    f.close()
+                            else:
+                                    f = open(Confonet_Log, "a")
+                                    print('Full state list being considered: ',file=f)
+                                    print(stateD_list, file=f)
+                                    f.close()
+
+  
+
+                    except Exception as e:
+                            f = open(Confonet_Log, "a")
+                            print('EXCEPTION in DISTRICT list updates block...',file=f)
+                            print('The system exception is '+ str(e),file=f)
+                            f.close()
+
+
+
+                    for current_state in stateD_list:
+                            try:           
+                                    f = open(Confonet_Log, "a")
+                                    print('The new state is:'+current_state,file=f)
+                                    f.close()
+
+                                    driver.get('http://cms.nic.in/ncdrcusersWeb/login.do?method=caseStatus')
+
+                                    time.sleep(1)
+                                    
+                                    leveltype = driver.find_elements_by_id("UserType")[2] # SUBSCRIPT 2 FOR DISTRICT RADIO BUTTON
+                                    leveltype.click()
+                                    time.sleep(1)
+                                    stateD=Select(driver.find_element_by_name('state_idD'))
+                                    stateD.select_by_visible_text(current_state)
+                                    time.sleep(1)
+                                    
+                                    dist = Select(driver.find_element_by_name('dist_id'))
+                                    dist_list = [o.text for o in dist.options]
+                                    dist_list = dist_list[1:] 
+                                    
+                                    try:
+                                            if start_from_district!= "ALL" and start_from_state == current_state:
+                                                    pos = dist_list.index(start_from_district)
+                                                    dist_list = dist_list[pos:]
+
+                                                    f = open(Confonet_Log, "a")
+                                                    print('District list updated based on start_from_district parameter, the truncated list is: ',file=f)
+                                                    print(dist_list, file=f)
+                                                    f.close()
+                                            else:
+                                                    f = open(Confonet_Log, "a")
+                                                    print('Full District list being considered: ',file=f)
+                                                    print(dist_list, file=f)
+                                                    f.close()
+                                            
+                                            
+                                    except Exception as e:
+                                            f = open(Confonet_Log, "a")
+                                            print('EXCEPTION in DISTRICT list update block...',file=f)
+                                            print('The system exception is '+ str(e),file=f)
+                                            f.close()
+
+                                    for current_district in dist_list:
+                                            try:
+                                                    f = open(Confonet_Log, "a")
+                                                    print('The new district is:'+current_district,file=f)
+                                                    f.close()
+                                                
+                                                    for current_cat in cat_list:              
+                                                            try:
+                                                                    f = open(Confonet_Log, "a")
+                                                                    print('The new category is:'+current_cat,file=f)
+                                                                    f.close()
+
+                                                                    driver.get('http://cms.nic.in/ncdrcusersWeb/login.do?method=caseStatus')
+                                                                    leveltype = driver.find_elements_by_id("UserType")[2] # SUBSCRIPT 1 FOR STATE COMMISSION
+                                                                    leveltype.click()
+##                                                                    f = open(Confonet_Log, "a")
+##                                                                    print('User Type Set to DISTRICT',file=f)
+##                                                                    f.close()
+                                                                    set_daterange(year)
+                                                                    set_diststate(current_state,current_district)
+                                                                    set_catoption(current_cat)
+##                                                                    f = open(Confonet_Log, "a")
+##                                                                    print('Daterange, State Commission and Catoption set',file=f)
+##                                                                    f.close()
+                                                                    
+                                                                    searchbutton = driver.find_element_by_name('advs')
+                                                                    searchbutton.click()
+                                                                    time.sleep(3)
+                                                                    if ("No record is available" in driver.page_source):
+                                                                            f = open(Confonet_Log, "a")
+                                                                            print('No records for this combo of state/district/sector',file=f)
+                                                                            f.close()
+                                                                    else:
+                                                                            scrape_action(year, current_state, current_district, current_cat)                    
+                                                            except Exception as e:
+                                                                    f = open(Confonet_Log, "a")
+                                                                    print('EXCEPTION in DISTRICT CATEGORY  block...',file=f)
+                                                                    print('The system exception is '+ str(e),file=f)
+                                                                    f.close()
+
+                                            except Exception as e:
+                                                    f = open(Confonet_Log, "a")
+                                                    print('EXCEPTION in DISTRICT Main block District Loop...',file=f)
+                                                    print('The system exception is '+ str(e),file=f)
+                                                    f.close()
+                                                    
+                            except Exception as e:
+                                    f = open(Confonet_Log, "a")
+                                    print('EXCEPTION in DISTRICT main block STATE loop...',file=f)
+                                    print('The system exception is '+ str(e),file=f)
+                                    f.close()
+
+                            
+
+                    
+                    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~END DISTRICT BLOCK~~~~~~~~~~~~~~~~~~~~~~~~~~~# 
+
+            
+            #print(stateD_list)
+
+
+except Exception as e:
+        f = open(Confonet_Log, "a")
+        print('EXCEPTION in YEAR block...',file=f)
+        print('The system exception is '+ str(e),file=f)
+        f.close()
+
+  
